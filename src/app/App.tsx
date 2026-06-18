@@ -29,6 +29,8 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
+import ChatApp from "./ChatApp";
+import { LoginModal } from "./components/auth/LoginModal";
 
 const COLORS = {
   bg: "#F8F6F1",
@@ -152,7 +154,7 @@ const plans = [
   },
 ];
 
-function Navbar() {
+function Navbar({ onLogin }: { onLogin: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -210,7 +212,15 @@ function Navbar() {
         </div>
 
         {/* CTA */}
-        <div className="hidden md:flex">
+        <div className="hidden md:flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onLogin}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/70"
+            style={{ color: COLORS.green, fontFamily: "Sora, sans-serif" }}
+          >
+            Entrar
+          </button>
           <a
             href={WHATSAPP_CTA_URL}
             target="_blank"
@@ -253,6 +263,17 @@ function Navbar() {
               {l.label}
             </a>
           ))}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileOpen(false);
+              onLogin();
+            }}
+            className="text-left text-base font-semibold py-2"
+            style={{ color: COLORS.green }}
+          >
+            Entrar na minha conta
+          </button>
           <a
             href={WHATSAPP_CTA_URL}
             target="_blank"
@@ -1321,10 +1342,10 @@ function Footer() {
   );
 }
 
-export default function App() {
+function LandingPage({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="min-h-screen" style={{ background: COLORS.bg }}>
-      <Navbar />
+      <Navbar onLogin={onLogin} />
       <HeroSection />
       <LogoBar />
       <HowItWorks />
@@ -1336,5 +1357,28 @@ export default function App() {
       <FinalCTA />
       <Footer />
     </div>
+  );
+}
+
+export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+
+  if (isAuthenticated) {
+    return <ChatApp onLogout={() => setIsAuthenticated(false)} />;
+  }
+
+  return (
+    <>
+      <LandingPage onLogin={() => setLoginOpen(true)} />
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onLogin={() => {
+          setLoginOpen(false);
+          setIsAuthenticated(true);
+        }}
+      />
+    </>
   );
 }
