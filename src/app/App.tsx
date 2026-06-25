@@ -29,10 +29,6 @@ type FormState = {
   mainActivity: string;
 };
 
-type CheckoutLeadPayload = FormState & {
-  source: string;
-};
-
 const plans: Array<{
   code: PlanCode;
   name: string;
@@ -99,15 +95,6 @@ const stateOptions = [
   "TO",
 ];
 
-function getApiBaseUrl() {
-  const env = import.meta.env as Record<string, string | undefined>;
-  return (
-    env.NEXT_PUBLIC_API_BASE_URL ||
-    env.VITE_API_BASE_URL ||
-    "https://api.redeas.online"
-  ).replace(/\/$/, "");
-}
-
 function getSupabaseConfig() {
   const env = import.meta.env as Record<string, string | undefined>;
   const url = env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL;
@@ -121,34 +108,39 @@ function getSupabaseConfig() {
   };
 }
 
-async function saveCheckoutLead(payload: CheckoutLeadPayload) {
+async function createCheckout(payload: FormState) {
   const supabase = getSupabaseConfig();
-  if (!supabase) return;
+  if (!supabase) {
+    throw new Error("Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+  }
 
-  await fetch(`${supabase.url}/rest/v1/checkout_leads`, {
+  const response = await fetch(`${supabase.url}/functions/v1/checkouts`, {
     method: "POST",
     headers: {
       apikey: supabase.publishableKey,
       Authorization: `Bearer ${supabase.publishableKey}`,
       "Content-Type": "application/json",
-      Prefer: "return=minimal",
     },
     body: JSON.stringify({
-      plan_code: payload.planCode,
+      planCode: payload.planCode,
       name: payload.name,
       phone: payload.phone,
       email: payload.email,
-      farm_name: payload.farmName,
+      farmName: payload.farmName,
       city: payload.city,
       state: payload.state,
-      main_activity: payload.mainActivity,
-      source: payload.source,
+      mainActivity: payload.mainActivity,
     }),
-  }).then((response) => {
-    if (!response.ok) {
-      throw new Error("Não foi possível registrar o cadastro inicial.");
-    }
   });
+
+  const result = await response.json().catch(() => null);
+  const checkoutUrl = result?.data?.checkoutUrl;
+
+  if (!response.ok || !result?.success || !checkoutUrl) {
+    throw new Error(result?.message || "Não foi possível criar o checkout. Confira os dados e tente novamente.");
+  }
+
+  return checkoutUrl as string;
 }
 
 function scrollToCheckout(planCode: PlanCode) {
@@ -275,7 +267,7 @@ function HowItWorks() {
     {
       icon: CreditCard,
       title: "Pague pelo checkout",
-      text: "A landing chama a API para criar o checkout. Nenhum usuário é criado diretamente no frontend.",
+      text: "A landing chama uma Edge Function do Supabase para criar o checkout. Nenhum usuário é criado diretamente no frontend.",
     },
     {
       icon: MessageCircle,
@@ -319,7 +311,7 @@ function Plans() {
             </h2>
           </div>
           <p className="max-w-lg leading-7 text-[#5d6b57]">
-            O plano escolhido é enviado para a API como `planCode`. Você pode começar no financeiro ou incluir planejamento de safra.
+            O plano escolhido é enviado para a Edge Function como `planCode`. Você pode começar no financeiro ou incluir planejamento de safra.
           </p>
         </div>
 
@@ -377,7 +369,7 @@ function Benefits() {
     { icon: WalletCards, title: "Controle financeiro", text: "Organize despesas e receitas da fazenda pelo WhatsApp." },
     { icon: CalendarClock, title: "Agenda agro", text: "Registre compromissos e atividades do dia a dia rural." },
     { icon: Tractor, title: "Rotina de campo", text: "Feito para produtor, consultor agro e pequenas fazendas." },
-    { icon: MapPin, title: "Fazenda vinculada", text: "A API cria a fazenda após o pagamento aprovado." },
+    { icon: MapPin, title: "Fazenda vinculada", text: "A Edge Function e os webhooks criam a fazenda após o pagamento aprovado." },
   ];
 
   return (
@@ -390,7 +382,7 @@ function Benefits() {
               Menos sistema, mais conversa no canal que o produtor já usa.
             </h2>
             <p className="mt-5 leading-7 text-[#dce8d8]">
-              O Redeas não substitui o pagamento nem cria acesso antes da aprovação. Ele recebe a liberação do backend e começa no WhatsApp certo.
+              O Redeas não substitui o pagamento nem cria acesso antes da aprovação. Ele recebe a liberação das funções no Supabase e começa no WhatsApp certo.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -464,40 +456,16 @@ function CheckoutForm() {
 
     setLoading(true);
     try {
-      await saveCheckoutLead({
-        ...form,
+      const checkoutUrl = await createCheckout({
+        planCode: form.planCode,
         name: form.name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
         farmName: form.farmName.trim(),
         city: form.city.trim(),
+        state: form.state,
         mainActivity: form.mainActivity.trim(),
-        source: "landing_checkout",
-      }).catch((leadError) => {
-        console.warn(leadError);
       });
-
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/checkouts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planCode: form.planCode,
-          name: form.name.trim(),
-          phone: form.phone.trim(),
-          email: form.email.trim(),
-          farmName: form.farmName.trim(),
-          city: form.city.trim(),
-          state: form.state,
-          mainActivity: form.mainActivity.trim(),
-        }),
-      });
-
-      const result = await response.json().catch(() => null);
-      const checkoutUrl = result?.data?.checkoutUrl;
-
-      if (!response.ok || !result?.success || !checkoutUrl) {
-        throw new Error(result?.message || "Não foi possível criar o checkout. Confira os dados e tente novamente.");
-      }
 
       window.location.assign(checkoutUrl);
     } catch (err) {
@@ -516,7 +484,7 @@ function CheckoutForm() {
             Preencha os dados antes de ir para o pagamento
           </h2>
           <p className="mt-5 leading-7 text-[#5d6b57]">
-            Use o mesmo número de WhatsApp que vai conversar com o agente. Depois do pagamento aprovado, o backend cria o usuário, ativa a assinatura e libera o contato.
+            Use o mesmo número de WhatsApp que vai conversar com o agente. Depois do pagamento aprovado, as funções no Supabase criam o usuário, ativam a assinatura e liberam o contato.
           </p>
 
           <div className="mt-8 rounded-lg border border-[#d8ddcf] bg-white p-5">
