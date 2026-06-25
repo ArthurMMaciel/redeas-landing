@@ -111,7 +111,7 @@ function getSupabaseConfig() {
 async function createCheckout(payload: FormState) {
   const supabase = getSupabaseConfig();
   if (!supabase) {
-    throw new Error("Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+    throw new Error("Checkout indisponível no momento. Tente novamente em instantes.");
   }
 
   const response = await fetch(`${supabase.url}/functions/v1/checkouts`, {
@@ -185,68 +185,71 @@ function Header() {
 function Hero() {
   return (
     <section className="relative overflow-hidden bg-[#fbfaf6]">
-      <div className="absolute inset-x-0 bottom-0 h-32 bg-[#eef0e5]" />
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl grid-cols-1 items-center gap-10 px-5 py-14 lg:grid-cols-[1.02fr_0.98fr]">
-        <div className="relative z-10 max-w-2xl">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-lg border border-[#d7c071] bg-[#fff6d8] px-3 py-2 text-sm font-semibold text-[#5d5121]">
+      <div className="absolute inset-x-0 bottom-0 h-36 bg-[#eef0e5]" />
+      <div className="mx-auto grid min-h-[calc(100vh+10rem)] max-w-7xl grid-cols-1 items-center gap-12 px-5 pb-14 pt-20 sm:pb-16 sm:pt-24 lg:min-h-[calc(100vh+12rem)] lg:grid-cols-[1.03fr_0.97fr] lg:pb-18 lg:pt-28">
+        <div className="relative z-10 max-w-3xl">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#d7c071] bg-[#fff6d8] px-4 py-2 text-sm font-semibold text-[#5d5121] shadow-sm">
             <MessageCircle size={16} />
-            Agente de WhatsApp para controle financeiro e agenda agro
+            Assistente no WhatsApp para gestão da fazenda
           </div>
-          <h1 className="text-4xl font-bold leading-tight text-[#183523] sm:text-5xl lg:text-6xl">
-            Redeas
+          <h1 className="max-w-2xl text-3xl font-bold leading-[1.12] text-[#183523] sm:text-4xl lg:text-5xl">
+            Controle financeiro e rotina da fazenda direto pelo WhatsApp
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-[#4f5c49]">
-            Cadastre sua fazenda pela landing page, escolha o plano e siga para o pagamento. Depois da confirmação, o agente é liberado no WhatsApp do número cadastrado.
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-[#4f5c49]">
+            Registre gastos, acompanhe tarefas e organize sua operação sem instalar aplicativo ou acessar sistema complicado.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
               onClick={() => scrollToCheckout("finance_basic")}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d8b24b] px-6 py-3.5 font-bold text-[#1d261b] shadow-sm transition hover:bg-[#caa13e]"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d8b24b] px-7 py-4 font-bold text-[#1d261b] shadow-[0_16px_34px_rgba(155,122,39,0.22)] transition hover:bg-[#caa13e] hover:shadow-[0_18px_38px_rgba(155,122,39,0.28)]"
             >
-              Assinar Controle Financeiro
+              Começar agora
               <ChevronRight size={18} />
             </button>
             <button
               type="button"
               onClick={() => scrollToCheckout("finance_safra")}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#b8c2af] px-6 py-3.5 font-semibold text-[#21442e] transition hover:bg-white"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#aebaa5] bg-white/70 px-7 py-4 font-semibold text-[#21442e] transition hover:border-[#21442e] hover:bg-white"
             >
-              Ver plano com Safra
+              Ver planos
             </button>
           </div>
-          <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 text-sm text-[#586653] sm:grid-cols-3">
-            <span className="flex items-center gap-2">
-              <ShieldCheck size={17} className="text-[#21442e]" />
-              Sem usuário no frontend
+          <div className="mt-7 flex max-w-2xl flex-wrap gap-2.5 text-[13px] font-medium leading-5 text-[#586653]">
+            <span className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-lg border border-[#d8ddcf] bg-white/65 px-3 py-2">
+              <ShieldCheck size={16} className="shrink-0 text-[#21442e]" />
+              <span className="min-w-0 whitespace-normal">Ativação simples e segura</span>
             </span>
-            <span className="flex items-center gap-2">
-              <CreditCard size={17} className="text-[#21442e]" />
-              Acesso após aprovação
-            </span>
-            <span className="flex items-center gap-2">
-              <Phone size={17} className="text-[#21442e]" />
-              Telefone é o identificador
+            <span className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-lg border border-[#d8ddcf] bg-white/65 px-3 py-2">
+              <MessageCircle size={16} className="shrink-0 text-[#21442e]" />
+              <span className="min-w-0 whitespace-normal">Sem aplicativo extra</span>
             </span>
           </div>
         </div>
 
         <div className="relative z-10">
-          <div className="overflow-hidden rounded-lg border border-[#d8ddcf] bg-white shadow-xl">
-            <img
-              src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80"
-              alt="Plantação agrícola vista do alto"
-              className="h-64 w-full object-cover sm:h-80"
-            />
-            <div className="grid gap-0 border-t border-[#e3e6db] sm:grid-cols-3">
+          <div className="overflow-hidden rounded-2xl border border-[#d8ddcf] bg-white shadow-[0_24px_60px_rgba(33,68,46,0.14)]">
+            <div className="relative">
+              <img
+                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80"
+                alt="Plantação agrícola vista do alto"
+                className="h-64 w-full object-cover sm:h-80 lg:h-[23rem]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#183523]/42 via-transparent to-transparent" />
+              <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-white/20 bg-white/88 p-4 shadow-lg backdrop-blur">
+                <p className="text-sm font-bold text-[#183523]">Gestão da fazenda em poucos minutos</p>
+                <p className="mt-1 text-sm leading-6 text-[#556250]">O cadastro é feito pela landing e a operação acontece pelo WhatsApp.</p>
+              </div>
+            </div>
+            <div className="grid gap-0 border-t border-[#e3e6db] bg-[#fffefa] sm:grid-cols-3">
               {[
-                ["WhatsApp", "Registre gastos por mensagem"],
-                ["Agenda", "Não perca tarefas da fazenda"],
-                ["Safra", "Planeje quando o plano incluir"],
+                ["WhatsApp", "Registre gastos e movimentações por mensagem."],
+                ["Agenda", "Receba lembretes e organize tarefas da fazenda."],
+                ["Safra", "Acompanhe o planejamento quando o plano incluir."],
               ].map(([title, text]) => (
                 <div key={title} className="border-b border-[#e3e6db] p-5 sm:border-b-0 sm:border-r last:sm:border-r-0">
                   <p className="font-bold text-[#21442e]">{title}</p>
-                  <p className="mt-1 text-sm leading-6 text-[#5f6c59]">{text}</p>
+                  <p className="mt-2 text-sm leading-6 text-[#5f6c59]">{text}</p>
                 </div>
               ))}
             </div>
@@ -267,17 +270,17 @@ function HowItWorks() {
     {
       icon: CreditCard,
       title: "Pague pelo checkout",
-      text: "A landing chama uma Edge Function do Supabase para criar o checkout. Nenhum usuário é criado diretamente no frontend.",
+      text: "Você segue para um pagamento seguro. A liberação acontece somente depois da aprovação.",
     },
     {
       icon: MessageCircle,
       title: "Receba a liberação",
-      text: 'Após aprovação, o backend ativa a assinatura e envia: "Olá, sou rédeas, seu agente de controle financeiro e agenda agro."',
+      text: 'Após aprovação, sua assinatura é ativada e você recebe: "Olá, sou rédeas, seu agente de controle financeiro e agenda agro."',
     },
   ];
 
   return (
-    <section id="como-funciona" className="bg-[#eef0e5] px-5 py-20">
+    <section id="como-funciona" className="bg-[#eef0e5] px-5 pb-20 pt-12 sm:pt-14">
       <div className="mx-auto max-w-7xl">
         <div className="max-w-2xl">
           <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Como funciona</p>
@@ -310,9 +313,6 @@ function Plans() {
               Escolha o plano antes do pagamento
             </h2>
           </div>
-          <p className="max-w-lg leading-7 text-[#5d6b57]">
-            O plano escolhido é enviado para a Edge Function como `planCode`. Você pode começar no financeiro ou incluir planejamento de safra.
-          </p>
         </div>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-2">
@@ -369,7 +369,7 @@ function Benefits() {
     { icon: WalletCards, title: "Controle financeiro", text: "Organize despesas e receitas da fazenda pelo WhatsApp." },
     { icon: CalendarClock, title: "Agenda agro", text: "Registre compromissos e atividades do dia a dia rural." },
     { icon: Tractor, title: "Rotina de campo", text: "Feito para produtor, consultor agro e pequenas fazendas." },
-    { icon: MapPin, title: "Fazenda vinculada", text: "A Edge Function e os webhooks criam a fazenda após o pagamento aprovado." },
+    { icon: MapPin, title: "Fazenda vinculada", text: "A fazenda fica vinculada ao número usado no cadastro após o pagamento aprovado." },
   ];
 
   return (
@@ -382,7 +382,7 @@ function Benefits() {
               Menos sistema, mais conversa no canal que o produtor já usa.
             </h2>
             <p className="mt-5 leading-7 text-[#dce8d8]">
-              O Redeas não substitui o pagamento nem cria acesso antes da aprovação. Ele recebe a liberação das funções no Supabase e começa no WhatsApp certo.
+              O Redeas não substitui o pagamento nem libera acesso antes da aprovação. Depois disso, o atendimento começa no WhatsApp certo.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -484,7 +484,7 @@ function CheckoutForm() {
             Preencha os dados antes de ir para o pagamento
           </h2>
           <p className="mt-5 leading-7 text-[#5d6b57]">
-            Use o mesmo número de WhatsApp que vai conversar com o agente. Depois do pagamento aprovado, as funções no Supabase criam o usuário, ativam a assinatura e liberam o contato.
+            Use o mesmo número de WhatsApp que vai conversar com o agente. Depois do pagamento aprovado, sua assinatura é ativada e o contato é liberado.
           </p>
 
           <div className="mt-8 rounded-lg border border-[#d8ddcf] bg-white p-5">
