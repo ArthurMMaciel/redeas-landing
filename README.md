@@ -1,11 +1,41 @@
+# Redeas Landing
 
-  # Landing page Rédeas Agent
+Landing page comercial do Redeas, com cadastro antes do pagamento e checkout via API.
 
-  This is a code bundle for Landing page Rédeas Agent. The original project is available at https://www.figma.com/design/OdIkyczzqiCz9U8IsmTSGL/Landing-page-R%C3%A9deas-Agent.
+## Desenvolvimento
 
-  ## Running the code
+```bash
+npm install
+npm run dev
+```
 
-  Run `npm i` to install the dependencies.
+## Variaveis de ambiente
 
-  Run `npm run dev` to start the development server.
-  
+Copie `.env.example` para `.env.local` no ambiente local ou configure as mesmas variaveis na Vercel:
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=https://api.redeas.online
+NEXT_PUBLIC_SUPABASE_URL=https://xfemzxgpzhhnymedeepy.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_WfT7Cg5Qc13Ynthp2C7mSQ_PS4rVUqi
+```
+
+O frontend usa o Supabase apenas para registrar o lead inicial em `checkout_leads`. A criacao do usuario pagante, fazenda, assinatura e mensagem de WhatsApp continua sendo responsabilidade do backend depois da aprovacao do pagamento.
+
+## Supabase
+
+A migration esta em `supabase/migrations`.
+
+Para aplicar em producao, use o Supabase CLI com credenciais de projeto ou banco configuradas:
+
+```bash
+npx supabase link --project-ref xfemzxgpzhhnymedeepy
+npx supabase db push
+```
+
+A publishable key e publica e pode ser usada no frontend, mas nao serve para rodar migrations.
+
+## Build
+
+```bash
+npm run build
+```

@@ -1,651 +1,304 @@
-import { useState, useEffect } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import {
-  Smartphone,
-  MessageSquare,
-  BarChart3,
-  Check,
-  ChevronDown,
   ArrowRight,
-  Bell,
+  CalendarClock,
+  Check,
+  ChevronRight,
+  ClipboardCheck,
   CreditCard,
-  Fuel,
-  Users,
-  Calendar,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Phone,
   ShieldCheck,
-  Zap,
-  TrendingUp,
-  Menu,
-  X,
-  Star,
   Sprout,
   Tractor,
-  ClipboardList,
+  WalletCards,
 } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
-import ChatApp from "./ChatApp";
-import { LoginModal } from "./components/auth/LoginModal";
 
-const COLORS = {
-  bg: "#F8F6F1",
-  green: "#1F3D2B",
-  olive: "#6B7A4F",
-  gold: "#C9A24B",
-  text: "#1A1A1A",
-  textLight: "#F8F6F1",
-  muted: "#6B6B5A",
-  border: "rgba(31,61,43,0.12)",
-  cardBg: "#FFFFFF",
+type PlanCode = "finance_basic" | "finance_safra";
+
+type FormState = {
+  planCode: PlanCode;
+  name: string;
+  phone: string;
+  email: string;
+  farmName: string;
+  city: string;
+  state: string;
+  mainActivity: string;
 };
 
-const WHATSAPP_CTA_URL = "https://wa.me/5544998924520?text=Ol%C3%A1.%20Quero%20testar%20o%20agente%20r%C3%A9deas";
+type CheckoutLeadPayload = FormState & {
+  source: string;
+};
 
-const chartData = [
-  { mes: "Jan", planejado: 45000, realizado: 38000 },
-  { mes: "Fev", planejado: 52000, realizado: 49000 },
-  { mes: "Mar", planejado: 61000, realizado: 67000 },
-  { mes: "Abr", planejado: 48000, realizado: 44000 },
-  { mes: "Mai", planejado: 70000, realizado: 65000 },
-  { mes: "Jun", planejado: 55000, realizado: 58000 },
-];
-
-const faqItems = [
+const plans: Array<{
+  code: PlanCode;
+  name: string;
+  price: string;
+  description: string;
+  includes: string[];
+  excludes?: string;
+}> = [
   {
-    q: "Meus dados são seguros no Rédeas?",
-    a: "Sim. Todos os dados são criptografados em trânsito e em repouso com AES-256. Nunca compartilhamos suas informações com terceiros sem sua autorização expressa.",
+    code: "finance_basic",
+    name: "Controle Financeiro",
+    price: "R$ 25,90/mês",
+    description: "Para começar o controle da fazenda pelo WhatsApp.",
+    includes: ["Controle financeiro pelo WhatsApp", "Agenda agro", "Cadastro da fazenda no pagamento"],
+    excludes: "Não inclui planejamento de safra.",
   },
   {
-    q: "O Rédeas está em conformidade com a LGPD?",
-    a: "Completamente. Somos auditados anualmente por consultoria especializada em proteção de dados. Você pode exportar ou excluir todos os seus dados a qualquer momento direto pelo WhatsApp.",
-  },
-  {
-    q: "Funciona integrado ao meu banco?",
-    a: "Estamos em fase beta de integração com os principais bancos agrícolas (Banco do Brasil, Bradesco Agro, Sicredi). Por enquanto, você registra manualmente via chat — o que leva menos de 10 segundos.",
-  },
-  {
-    q: "E se eu estiver sem internet na fazenda?",
-    a: "As mensagens ficam salvas no WhatsApp e são processadas assim que a conexão retornar. Nada se perde.",
-  },
-  {
-    q: "Que tipo de suporte vocês oferecem?",
-    a: "Suporte via WhatsApp em horário comercial (seg–sex, 8h–18h) para todos os planos. O plano Empresarial inclui gerente de conta dedicado.",
-  },
-  {
-    q: "Posso cancelar quando quiser?",
-    a: "Sim, sem burocracia. Cancele pelo WhatsApp com um aviso de 30 dias. Seus dados ficam disponíveis para exportação por mais 60 dias após o cancelamento.",
+    code: "finance_safra",
+    name: "Financeiro + Safra",
+    price: "R$ 65,00/mês",
+    description: "Para quem quer organizar dinheiro, agenda e planejamento.",
+    includes: ["Controle financeiro pelo WhatsApp", "Agenda agro", "Planejamento de safra"],
   },
 ];
 
-const testimonials = [
-  {
-    name: "Carlos Henrique Melo",
-    role: "Produtor de soja",
-    location: "Sorriso, MT",
-    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&auto=format",
-    text: "Antes eu anotava tudo num caderno e perdia noção dos gastos. Agora mando uma mensagem e pronto — no fim do mês tenho o relatório completo por talhão.",
-  },
-  {
-    name: "Fernanda Rocha",
-    role: "Consultora agrícola",
-    location: "Ribeirão Preto, SP",
-    photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&auto=format",
-    text: "Recomendo para todos os meus clientes. A visão de Planejado x Realizado mudou completamente a conversa com os produtores na hora de fechar a safra.",
-  },
-  {
-    name: "Ricardo Alves",
-    role: "Gestor de fazenda",
-    location: "Barreiras, BA",
-    photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&auto=format",
-    text: "Gerencio três fazendas com equipes diferentes. O Rédeas me dá controle de todas elas num lugar só, sem planilha nem sistema complicado.",
-  },
+const initialForm: FormState = {
+  planCode: "finance_basic",
+  name: "",
+  phone: "",
+  email: "",
+  farmName: "",
+  city: "",
+  state: "",
+  mainActivity: "",
+};
+
+const stateOptions = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
 ];
 
-const plans = [
-  {
-    name: "Essencial",
-    price: "R$ 97",
-    period: "/mês",
-    desc: "Para o produtor que quer controle básico das despesas.",
-    featured: false,
-    features: [
-      "Registro ilimitado de despesas",
-      "Categorias agrícolas prontas",
-      "Relatório mensal",
-      "1 fazenda",
-      "Suporte via chat",
-    ],
-  },
-  {
-    name: "Profissional",
-    price: "R$ 197",
-    period: "/mês",
-    desc: "O mais completo para quem leva a gestão a sério.",
-    featured: true,
-    features: [
-      "Tudo do Essencial",
-      "Planejado x Realizado por safra",
-      "Alertas de orçamento",
-      "Compras parceladas e cartões",
-      "Até 5 fazendas",
-      "Relatórios personalizados",
-      "Suporte prioritário",
-    ],
-  },
-  {
-    name: "Empresarial",
-    price: "Sob consulta",
-    period: "",
-    desc: "Para grupos, cooperativas e consultorias com múltiplos clientes.",
-    featured: false,
-    features: [
-      "Tudo do Profissional",
-      "Fazendas ilimitadas",
-      "Multi-usuário",
-      "API de integração",
-      "Gerente de conta dedicado",
-      "SLA garantido",
-    ],
-  },
-];
-
-function Navbar({ onLogin }: { onLogin: () => void }) {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handler);
-    return () => window.removeEventListener("scroll", handler);
-  }, []);
-
-  const links = [
-    { label: "Como funciona", href: "#como-funciona" },
-    { label: "Recursos", href: "#recursos" },
-    { label: "Planos", href: "#planos" },
-    { label: "FAQ", href: "#faq" },
-  ];
-
+function getApiBaseUrl() {
+  const env = import.meta.env as Record<string, string | undefined>;
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-      style={{
-        background: scrolled ? "rgba(248,246,241,0.92)" : "rgba(248,246,241,0.6)",
-        backdropFilter: "blur(16px)",
-        borderBottom: scrolled ? `1px solid ${COLORS.border}` : "1px solid transparent",
-      }}
-    >
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <a href="#" className="flex items-center gap-2 group">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{ background: COLORS.green }}
-          >
-            <Sprout size={16} color={COLORS.gold} />
-          </div>
-          <span
-            className="text-xl font-bold tracking-tight"
-            style={{ fontFamily: "Sora, sans-serif", color: COLORS.green }}
-          >
-            Rédeas
-          </span>
-        </a>
+    env.NEXT_PUBLIC_API_BASE_URL ||
+    env.VITE_API_BASE_URL ||
+    "https://api.redeas.online"
+  ).replace(/\/$/, "");
+}
 
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-8">
-          {links.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              className="text-sm font-medium transition-colors hover:opacity-70"
-              style={{ color: COLORS.text, fontFamily: "Inter, sans-serif" }}
-            >
-              {l.label}
-            </a>
-          ))}
-        </div>
+function getSupabaseConfig() {
+  const env = import.meta.env as Record<string, string | undefined>;
+  const url = env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL;
+  const publishableKey = env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-        {/* CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onLogin}
-            className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/70"
-            style={{ color: COLORS.green, fontFamily: "Sora, sans-serif" }}
-          >
-            Entrar
-          </button>
-          <a
-            href={WHATSAPP_CTA_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-            style={{
-              background: COLORS.green,
-              color: COLORS.textLight,
-              fontFamily: "Sora, sans-serif",
-            }}
-          >
-            Teste 15 dias
-          </a>
-        </div>
+  if (!url || !publishableKey) return null;
 
-        {/* Mobile toggle */}
+  return {
+    url: url.replace(/\/$/, ""),
+    publishableKey,
+  };
+}
+
+async function saveCheckoutLead(payload: CheckoutLeadPayload) {
+  const supabase = getSupabaseConfig();
+  if (!supabase) return;
+
+  await fetch(`${supabase.url}/rest/v1/checkout_leads`, {
+    method: "POST",
+    headers: {
+      apikey: supabase.publishableKey,
+      Authorization: `Bearer ${supabase.publishableKey}`,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      plan_code: payload.planCode,
+      name: payload.name,
+      phone: payload.phone,
+      email: payload.email,
+      farm_name: payload.farmName,
+      city: payload.city,
+      state: payload.state,
+      main_activity: payload.mainActivity,
+      source: payload.source,
+    }),
+  }).then((response) => {
+    if (!response.ok) {
+      throw new Error("Não foi possível registrar o cadastro inicial.");
+    }
+  });
+}
+
+function scrollToCheckout(planCode: PlanCode) {
+  window.dispatchEvent(new CustomEvent("redeas:select-plan", { detail: planCode }));
+  document.getElementById("checkout")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function Brand() {
+  return (
+    <a href="/" className="flex items-center gap-2" aria-label="Redeas">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#21442e] text-[#f3c85d]">
+        <Sprout size={19} />
+      </span>
+      <span className="text-xl font-bold text-[#21442e]">Redeas</span>
+    </a>
+  );
+}
+
+function Header() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-[#d8ddcf] bg-[#fbfaf6]/92 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
+        <Brand />
+        <nav className="hidden items-center gap-7 text-sm font-medium text-[#4b5d45] md:flex">
+          <a href="#como-funciona">Como funciona</a>
+          <a href="#planos">Planos</a>
+          <a href="#checkout">Assinar</a>
+        </nav>
         <button
-          className="md:hidden p-2 rounded-lg"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{ color: COLORS.green }}
+          type="button"
+          onClick={() => scrollToCheckout("finance_basic")}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#21442e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#183523]"
         >
-          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          Assinar
+          <ArrowRight size={16} />
         </button>
       </div>
-
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div
-          className="md:hidden px-6 pb-6 pt-2 flex flex-col gap-4"
-          style={{ background: "rgba(248,246,241,0.97)" }}
-        >
-          {links.map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              onClick={() => setMobileOpen(false)}
-              className="text-base font-medium py-2"
-              style={{ color: COLORS.text }}
-            >
-              {l.label}
-            </a>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setMobileOpen(false);
-              onLogin();
-            }}
-            className="text-left text-base font-semibold py-2"
-            style={{ color: COLORS.green }}
-          >
-            Entrar na minha conta
-          </button>
-          <a
-            href={WHATSAPP_CTA_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-center px-5 py-3 rounded-xl text-sm font-semibold mt-2"
-            style={{ background: COLORS.green, color: COLORS.textLight }}
-          >
-            Teste 15 dias grátis
-          </a>
-        </div>
-      )}
-    </nav>
+    </header>
   );
 }
 
-function WhatsAppMockup() {
-  const messages = [
-    { from: "user", text: "Gastei R$ 4.200 com adubo no talhão 3" },
-    {
-      from: "agent",
-      text: "✅ Registrado! Aqui está o resumo:",
-      extra: true,
-    },
-    { from: "user", text: "Qual meu saldo de insumos esse mês?" },
-    {
-      from: "agent",
-      text: "Você usou R$ 18.400 de R$ 27.000 planejados para insumos — 68% do orçamento.",
-    },
-  ];
-
+function Hero() {
   return (
-    <div className="relative flex justify-center items-center">
-      {/* Floating card: Saldo */}
-      <div
-        className="absolute -left-4 top-8 z-20 rounded-2xl shadow-xl px-4 py-3 hidden lg:flex flex-col gap-1"
-        style={{ background: COLORS.green, minWidth: 160 }}
-      >
-        <span className="text-xs font-medium opacity-70" style={{ color: COLORS.textLight, fontFamily: "Inter" }}>
-          Saldo da safra
-        </span>
-        <span className="text-lg font-bold" style={{ color: COLORS.gold, fontFamily: "Sora" }}>
-          R$ 142.800
-        </span>
-        <div className="flex items-center gap-1 mt-0.5">
-          <TrendingUp size={12} color="#6EE7A0" />
-          <span className="text-xs" style={{ color: "#6EE7A0", fontFamily: "Inter" }}>+8% vs. planejado</span>
-        </div>
-      </div>
-
-      {/* Floating card: Categoria */}
-      <div
-        className="absolute -right-6 top-16 z-20 rounded-2xl shadow-xl px-4 py-3 hidden lg:flex flex-col gap-1"
-        style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, minWidth: 160 }}
-      >
-        <span className="text-xs font-medium" style={{ color: COLORS.muted, fontFamily: "Inter" }}>Categoria</span>
-        <div className="flex items-center gap-2">
-          <span className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: "#EDE9E0" }}>
-            <Sprout size={12} color={COLORS.green} />
-          </span>
-          <span className="text-sm font-semibold" style={{ color: COLORS.text, fontFamily: "Sora" }}>Insumos</span>
-        </div>
-      </div>
-
-      {/* Floating card: Orçamento */}
-      <div
-        className="absolute -right-4 bottom-20 z-20 rounded-2xl shadow-xl px-4 py-3 hidden lg:flex flex-col gap-2"
-        style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, minWidth: 170 }}
-      >
-        <span className="text-xs font-medium" style={{ color: COLORS.muted, fontFamily: "Inter" }}>Restante do orçamento</span>
-        <div className="flex items-center justify-between">
-          <span className="text-xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>68%</span>
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: "#E8F5E9", color: "#2E7D32" }}>
-            No controle
-          </span>
-        </div>
-        <div className="w-full rounded-full h-2" style={{ background: "#EDE9E0" }}>
-          <div className="h-2 rounded-full" style={{ background: COLORS.gold, width: "68%" }} />
-        </div>
-      </div>
-
-      {/* Phone */}
-      <div
-        className="relative z-10 rounded-[2.5rem] overflow-hidden shadow-2xl"
-        style={{
-          width: 300,
-          background: "#075E54",
-          border: "8px solid #1A1A1A",
-        }}
-      >
-        {/* WA Header */}
-        <div className="px-4 py-3 flex items-center gap-3" style={{ background: "#075E54" }}>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: COLORS.gold }}>
-            <Sprout size={16} color="white" />
+    <section className="relative overflow-hidden bg-[#fbfaf6]">
+      <div className="absolute inset-x-0 bottom-0 h-32 bg-[#eef0e5]" />
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl grid-cols-1 items-center gap-10 px-5 py-14 lg:grid-cols-[1.02fr_0.98fr]">
+        <div className="relative z-10 max-w-2xl">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-lg border border-[#d7c071] bg-[#fff6d8] px-3 py-2 text-sm font-semibold text-[#5d5121]">
+            <MessageCircle size={16} />
+            Agente de WhatsApp para controle financeiro e agenda agro
           </div>
-          <div>
-            <p className="text-sm font-semibold text-white" style={{ fontFamily: "Sora" }}>Rédeas Agent</p>
-            <p className="text-xs text-green-200">online</p>
-          </div>
-        </div>
-
-        {/* Chat */}
-        <div
-          className="px-3 py-4 flex flex-col gap-3 min-h-[420px]"
-          style={{ background: "#ECE5DD" }}
-        >
-          {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-              <div
-                className="px-3 py-2 rounded-2xl max-w-[80%] shadow-sm"
-                style={{
-                  background: m.from === "user" ? "#DCF8C6" : "#FFFFFF",
-                  borderRadius: m.from === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-                }}
-              >
-                <p className="text-xs leading-relaxed" style={{ color: "#1A1A1A", fontFamily: "Inter" }}>
-                  {m.text}
-                </p>
-                {m.extra && (
-                  <div className="mt-2 rounded-xl p-2.5" style={{ background: "#F0F7F4", border: "1px solid #C8E6C9" }}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span style={{ color: COLORS.muted }}>Valor</span>
-                      <span className="font-semibold" style={{ color: COLORS.green }}>R$ 4.200</span>
-                    </div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span style={{ color: COLORS.muted }}>Categoria</span>
-                      <span className="font-semibold" style={{ color: COLORS.green }}>Insumos</span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span style={{ color: COLORS.muted }}>Talhão</span>
-                      <span className="font-semibold" style={{ color: COLORS.green }}>Talhão 3</span>
-                    </div>
-                  </div>
-                )}
-                <p className="text-right text-[10px] mt-1" style={{ color: "#999" }}>
-                  {["09:14", "09:14", "09:16", "09:16"][i]} ✓✓
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Input bar */}
-        <div className="px-3 py-2 flex items-center gap-2" style={{ background: "#F0F0F0" }}>
-          <div className="flex-1 rounded-full px-4 py-2 text-xs" style={{ background: "white", color: COLORS.muted, fontFamily: "Inter" }}>
-            Digite uma mensagem...
-          </div>
-          <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "#25D366" }}>
-            <MessageSquare size={16} color="white" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HeroSection() {
-  const avatars = [
-    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=40&h=40&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=40&h=40&fit=crop&auto=format",
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&auto=format",
-  ];
-
-  return (
-    <section className="min-h-screen flex items-center pt-20 pb-16 px-6">
-      <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-        {/* Left */}
-        <div className="flex flex-col gap-8">
-          {/* Badge */}
-          <div className="inline-flex w-fit">
-            <span
-              className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full"
-              style={{
-                background: "rgba(201,162,75,0.12)",
-                color: "#8A6A1F",
-                border: "1px solid rgba(201,162,75,0.3)",
-                fontFamily: "Inter",
-              }}
+          <h1 className="text-4xl font-bold leading-tight text-[#183523] sm:text-5xl lg:text-6xl">
+            Redeas
+          </h1>
+          <p className="mt-5 max-w-xl text-lg leading-8 text-[#4f5c49]">
+            Cadastre sua fazenda pela landing page, escolha o plano e siga para o pagamento. Depois da confirmação, o agente é liberado no WhatsApp do número cadastrado.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => scrollToCheckout("finance_basic")}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d8b24b] px-6 py-3.5 font-bold text-[#1d261b] shadow-sm transition hover:bg-[#caa13e]"
             >
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: COLORS.gold }} />
-              Novo • Agente no WhatsApp
+              Assinar Controle Financeiro
+              <ChevronRight size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollToCheckout("finance_safra")}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#b8c2af] px-6 py-3.5 font-semibold text-[#21442e] transition hover:bg-white"
+            >
+              Ver plano com Safra
+            </button>
+          </div>
+          <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 text-sm text-[#586653] sm:grid-cols-3">
+            <span className="flex items-center gap-2">
+              <ShieldCheck size={17} className="text-[#21442e]" />
+              Sem usuário no frontend
+            </span>
+            <span className="flex items-center gap-2">
+              <CreditCard size={17} className="text-[#21442e]" />
+              Acesso após aprovação
+            </span>
+            <span className="flex items-center gap-2">
+              <Phone size={17} className="text-[#21442e]" />
+              Telefone é o identificador
             </span>
           </div>
-
-          {/* H1 */}
-          <h1
-            className="text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight"
-            style={{ color: COLORS.green, fontFamily: "Sora, sans-serif", letterSpacing: "-0.03em" }}
-          >
-            Tenha as rédeas da sua fazenda no WhatsApp
-          </h1>
-
-          <p className="text-lg leading-relaxed" style={{ color: COLORS.muted, fontFamily: "Inter", maxWidth: 480 }}>
-            Registre gastos, acompanhe orçamentos e veja relatórios por safra — tudo por mensagem, sem app novo, sem planilha.
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start">
-            <a
-              href={WHATSAPP_CTA_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="px-7 py-4 rounded-xl font-semibold text-base transition-all hover:opacity-90 active:scale-95 shadow-lg"
-              style={{
-                background: COLORS.gold,
-                color: COLORS.text,
-                fontFamily: "Sora, sans-serif",
-                boxShadow: "0 4px 24px rgba(201,162,75,0.35)",
-              }}
-            >
-              Teste grátis por 15 dias
-            </a>
-            <a
-              href="#como-funciona"
-              className="flex items-center gap-2 px-4 py-4 font-medium text-base transition-all hover:opacity-70"
-              style={{ color: COLORS.green, fontFamily: "Sora, sans-serif" }}
-            >
-              Ver demo
-              <ArrowRight size={18} />
-            </a>
-          </div>
-
-          {/* Social proof */}
-          <div className="flex items-center gap-3">
-            <div className="flex -space-x-3">
-              {avatars.map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt="produtor rural"
-                  className="w-9 h-9 rounded-full border-2 object-cover"
-                  style={{ borderColor: COLORS.bg, background: COLORS.muted }}
-                />
-              ))}
-            </div>
-            <div>
-              <div className="flex items-center gap-1 mb-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={12} fill={COLORS.gold} color={COLORS.gold} />
-                ))}
-              </div>
-              <p className="text-sm" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-                <strong style={{ color: COLORS.text }}>+200 produtores</strong> já usam o Rédeas
-              </p>
-            </div>
-          </div>
         </div>
 
-        {/* Right: mockup */}
-        <div className="flex justify-center lg:justify-end">
-          <WhatsAppMockup />
+        <div className="relative z-10">
+          <div className="overflow-hidden rounded-lg border border-[#d8ddcf] bg-white shadow-xl">
+            <img
+              src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80"
+              alt="Plantação agrícola vista do alto"
+              className="h-64 w-full object-cover sm:h-80"
+            />
+            <div className="grid gap-0 border-t border-[#e3e6db] sm:grid-cols-3">
+              {[
+                ["WhatsApp", "Registre gastos por mensagem"],
+                ["Agenda", "Não perca tarefas da fazenda"],
+                ["Safra", "Planeje quando o plano incluir"],
+              ].map(([title, text]) => (
+                <div key={title} className="border-b border-[#e3e6db] p-5 sm:border-b-0 sm:border-r last:sm:border-r-0">
+                  <p className="font-bold text-[#21442e]">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-[#5f6c59]">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
-  );
-}
-
-function LogoBar() {
-  const partners = [
-    "Coamo", "Cocamar", "Aprosoja", "Celg Agro", "Sicredi Rural", "Embrapa Parceiro"
-  ];
-
-  return (
-    <div className="py-10 border-y" style={{ borderColor: COLORS.border }}>
-      <div className="max-w-7xl mx-auto px-6">
-        <p className="text-center text-xs font-medium mb-6 uppercase tracking-widest" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-          Parceiros e cooperativas
-        </p>
-        <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-4">
-          {partners.map((p) => (
-            <span
-              key={p}
-              className="text-base font-bold tracking-tight opacity-30"
-              style={{ color: COLORS.green, fontFamily: "Sora" }}
-            >
-              {p}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 
 function HowItWorks() {
   const steps = [
     {
-      icon: <Smartphone size={28} color={COLORS.gold} />,
-      num: "01",
-      title: "Conecte seu WhatsApp",
-      desc: "Escaneie o QR Code e o agente está pronto em menos de 2 minutos. Sem instalação.",
-      preview: (
-        <div className="rounded-xl p-3 text-xs" style={{ background: "#F0F7F4", border: `1px solid ${COLORS.border}` }}>
-          <p className="font-semibold mb-2" style={{ color: COLORS.green, fontFamily: "Sora" }}>Conectar agente</p>
-          <div className="w-16 h-16 mx-auto rounded-xl flex items-center justify-center" style={{ background: COLORS.green }}>
-            <div className="grid grid-cols-3 gap-0.5">
-              {[...Array(9)].map((_, i) => (
-                <div key={i} className="w-3 h-3 rounded-sm" style={{ background: i % 2 === 0 ? COLORS.gold : "transparent" }} />
-              ))}
-            </div>
-          </div>
-          <p className="text-center mt-2" style={{ color: COLORS.muted, fontFamily: "Inter" }}>Escaneie para ativar</p>
-        </div>
-      ),
+      icon: ClipboardCheck,
+      title: "Preencha o cadastro",
+      text: "Informe seus dados, fazenda, cidade, UF, cultura principal e o telefone que vai conversar com o agente.",
     },
     {
-      icon: <MessageSquare size={28} color={COLORS.gold} />,
-      num: "02",
-      title: "Converse naturalmente",
-      desc: "Fale como você fala. \"Comprei 200 litros de diesel\" ou \"paguei R$ 3.000 de diária\" — o agente entende.",
-      preview: (
-        <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "#ECE5DD" }}>
-          <div className="self-end bg-[#DCF8C6] rounded-xl px-3 py-1.5 text-xs max-w-[90%]" style={{ fontFamily: "Inter", borderRadius: "12px 12px 3px 12px" }}>
-            Comprei 200L de diesel — R$ 1.840
-          </div>
-          <div className="self-start bg-white rounded-xl px-3 py-1.5 text-xs max-w-[90%]" style={{ fontFamily: "Inter", borderRadius: "12px 12px 12px 3px" }}>
-            ✅ Registrado em Combustível! Saldo: R$ 8.160
-          </div>
-        </div>
-      ),
+      icon: CreditCard,
+      title: "Pague pelo checkout",
+      text: "A landing chama a API para criar o checkout. Nenhum usuário é criado diretamente no frontend.",
     },
     {
-      icon: <BarChart3 size={28} color={COLORS.gold} />,
-      num: "03",
-      title: "Veja relatórios em tempo real",
-      desc: "Acompanhe gastos por categoria, talhão ou safra. Receba alertas quando o orçamento estiver no limite.",
-      preview: (
-        <div className="rounded-xl p-3" style={{ background: "#F8F6F1", border: `1px solid ${COLORS.border}` }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: COLORS.green, fontFamily: "Sora" }}>Resumo de maio</p>
-          {["Insumos", "Combustível", "Mão de obra"].map((cat, i) => (
-            <div key={cat} className="flex items-center gap-2 mb-1.5">
-              <span className="text-xs w-20 truncate" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{cat}</span>
-              <div className="flex-1 rounded-full h-1.5" style={{ background: "#EDE9E0" }}>
-                <div className="h-1.5 rounded-full" style={{ background: [COLORS.green, COLORS.olive, COLORS.gold][i], width: ["75%", "45%", "60%"][i] }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ),
+      icon: MessageCircle,
+      title: "Receba a liberação",
+      text: 'Após aprovação, o backend ativa a assinatura e envia: "Olá, sou rédeas, seu agente de controle financeiro e agenda agro."',
     },
   ];
 
   return (
-    <section id="como-funciona" className="py-24 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: COLORS.gold, fontFamily: "Inter" }}>
-            Como funciona
-          </p>
-          <h2 className="text-4xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-            Três passos. Zero complicação.
+    <section id="como-funciona" className="bg-[#eef0e5] px-5 py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="max-w-2xl">
+          <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Como funciona</p>
+          <h2 className="mt-3 text-3xl font-bold text-[#183523] sm:text-4xl">
+            O cadastro começa aqui. O WhatsApp vem depois do pagamento aprovado.
           </h2>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {steps.map((s, i) => (
-            <div
-              key={i}
-              className="rounded-2xl p-7 flex flex-col gap-5"
-              style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, boxShadow: "0 2px 16px rgba(31,61,43,0.06)" }}
-            >
-              <div className="flex items-start justify-between">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "rgba(201,162,75,0.1)" }}>
-                  {s.icon}
-                </div>
-                <span className="text-3xl font-bold opacity-10" style={{ color: COLORS.green, fontFamily: "Sora" }}>{s.num}</span>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold mb-2" style={{ color: COLORS.green, fontFamily: "Sora" }}>{s.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{s.desc}</p>
-              </div>
-              {s.preview}
+        <div className="mt-10 grid gap-5 md:grid-cols-3">
+          {steps.map((step) => (
+            <div key={step.title} className="rounded-lg border border-[#d8ddcf] bg-white p-6">
+              <step.icon className="text-[#21442e]" size={28} />
+              <h3 className="mt-5 text-xl font-bold text-[#183523]">{step.title}</h3>
+              <p className="mt-3 leading-7 text-[#5d6b57]">{step.text}</p>
             </div>
           ))}
         </div>
@@ -654,411 +307,99 @@ function HowItWorks() {
   );
 }
 
-function ResourcesSection() {
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-xl px-3 py-2 shadow-lg" style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}` }}>
-          <p className="text-xs font-semibold mb-1" style={{ color: COLORS.green, fontFamily: "Sora" }}>{label}</p>
-          {payload.map((p: any) => (
-            <p key={p.name} className="text-xs" style={{ color: p.color, fontFamily: "Inter" }}>
-              {p.name === "planejado" ? "Planejado" : "Realizado"}: R$ {(p.value / 1000).toFixed(0)}k
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
+function Plans() {
   return (
-    <section id="recursos" className="py-24 px-6" style={{ background: "#F0EDE5" }}>
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: COLORS.gold, fontFamily: "Inter" }}>
-            Recursos
+    <section id="planos" className="bg-[#fbfaf6] px-5 py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Planos</p>
+            <h2 className="mt-3 text-3xl font-bold text-[#183523] sm:text-4xl">
+              Escolha o plano antes do pagamento
+            </h2>
+          </div>
+          <p className="max-w-lg leading-7 text-[#5d6b57]">
+            O plano escolhido é enviado para a API como `planCode`. Você pode começar no financeiro ou incluir planejamento de safra.
           </p>
-          <h2 className="text-4xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-            Tudo o que você precisa para fechar a safra no azul
-          </h2>
         </div>
 
-        {/* Bento Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 auto-rows-auto">
-
-          {/* Card grande: Dashboard */}
-          <div
-            className="md:col-span-3 lg:col-span-4 rounded-2xl p-6"
-            style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, boxShadow: "0 2px 20px rgba(31,61,43,0.07)" }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-base" style={{ color: COLORS.green, fontFamily: "Sora" }}>Planejado × Realizado</h3>
-                <p className="text-xs mt-0.5" style={{ color: COLORS.muted, fontFamily: "Inter" }}>Safra 2024/25 — Visualização semestral</p>
-              </div>
-              <div className="flex gap-3">
-                <span className="flex items-center gap-1.5 text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLORS.green }} />Planejado
-                </span>
-                <span className="flex items-center gap-1.5 text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-                  <span className="w-2.5 h-2.5 rounded-sm" style={{ background: COLORS.gold }} />Realizado
-                </span>
-              </div>
-            </div>
-
-            {/* KPI mini-cards */}
-            <div className="grid grid-cols-3 gap-3 mb-5">
-              {[
-                { label: "Total planejado", value: "R$ 331k" },
-                { label: "Total realizado", value: "R$ 321k" },
-                { label: "Variação", value: "-3%", positive: true },
-              ].map((k) => (
-                <div key={k.label} className="rounded-xl p-3" style={{ background: "#F8F6F1" }}>
-                  <p className="text-xs mb-1" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{k.label}</p>
-                  <p className="font-bold text-sm" style={{ color: k.positive ? "#2E7D32" : COLORS.green, fontFamily: "Sora" }}>{k.value}</p>
-                </div>
-              ))}
-            </div>
-
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={chartData} barCategoryGap="30%">
-                <XAxis dataKey="mes" tick={{ fontSize: 11, fill: COLORS.muted, fontFamily: "Inter" }} axisLine={false} tickLine={false} />
-                <YAxis hide />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="planejado" fill={COLORS.green} radius={[4, 4, 0, 0]} />
-                <Bar dataKey="realizado" fill={COLORS.gold} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Card médio: Categorias */}
-          <div
-            className="md:col-span-3 lg:col-span-2 rounded-2xl p-6"
-            style={{ background: COLORS.green }}
-          >
-            <h3 className="font-bold text-base mb-4" style={{ color: COLORS.textLight, fontFamily: "Sora" }}>
-              Categorias agrícolas
-            </h3>
-            <div className="flex flex-col gap-3">
-              {[
-                { icon: <Sprout size={14} color={COLORS.green} />, label: "Insumos", value: "R$ 18.400", pct: "42%" },
-                { icon: <Fuel size={14} color={COLORS.green} />, label: "Combustível", value: "R$ 9.200", pct: "21%" },
-                { icon: <Users size={14} color={COLORS.green} />, label: "Mão de obra", value: "R$ 14.800", pct: "33%" },
-                { icon: <Tractor size={14} color={COLORS.green} />, label: "Maquinário", value: "R$ 1.800", pct: "4%" },
-              ].map((cat) => (
-                <div key={cat.label} className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: COLORS.gold }}>
-                    {cat.icon}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-xs font-medium" style={{ color: "rgba(248,246,241,0.85)", fontFamily: "Inter" }}>{cat.label}</span>
-                      <span className="text-xs font-bold" style={{ color: COLORS.gold, fontFamily: "Sora" }}>{cat.pct}</span>
-                    </div>
-                    <div className="w-full rounded-full h-1.5" style={{ background: "rgba(248,246,241,0.15)" }}>
-                      <div className="h-1.5 rounded-full" style={{ background: COLORS.gold, width: cat.pct }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card pequeno: Alertas */}
-          <div
-            className="md:col-span-1 lg:col-span-2 rounded-2xl p-5"
-            style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}` }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(201,162,75,0.12)" }}>
-                <Bell size={16} color={COLORS.gold} />
-              </div>
-              <h3 className="font-bold text-sm" style={{ color: COLORS.green, fontFamily: "Sora" }}>Alertas de orçamento</h3>
-            </div>
-            <div className="rounded-xl p-3 mb-3" style={{ background: "#FFF8E1", border: "1px solid #FFE082" }}>
-              <p className="text-xs font-semibold" style={{ color: "#8A6A1F", fontFamily: "Inter" }}>⚠️ Insumos 85% usado</p>
-              <p className="text-xs mt-0.5" style={{ color: "#A07820", fontFamily: "Inter" }}>Faltam R$ 4.200 para o limite</p>
-            </div>
-            <div className="rounded-xl p-3" style={{ background: "#E8F5E9", border: "1px solid #C8E6C9" }}>
-              <p className="text-xs font-semibold" style={{ color: "#2E7D32", fontFamily: "Inter" }}>✅ Mão de obra ok</p>
-              <p className="text-xs mt-0.5" style={{ color: "#388E3C", fontFamily: "Inter" }}>68% do orçamento disponível</p>
-            </div>
-          </div>
-
-          {/* Card médio: Parcelamentos */}
-          <div
-            className="md:col-span-2 lg:col-span-2 rounded-2xl p-5"
-            style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}` }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(31,61,43,0.08)" }}>
-                <CreditCard size={16} color={COLORS.green} />
-              </div>
-              <h3 className="font-bold text-sm" style={{ color: COLORS.green, fontFamily: "Sora" }}>Compras parceladas</h3>
-            </div>
-            <div className="flex flex-col gap-2.5">
-              {[
-                { desc: "Sementes Pioneer", total: "R$ 12.000", parcelas: "3x R$ 4.000", status: 1 },
-                { desc: "Adubo NPK", total: "R$ 8.400", parcelas: "2x R$ 4.200", status: 2 },
-                { desc: "Defensivos", total: "R$ 5.600", parcelas: "4x R$ 1.400", status: 0 },
-              ].map((item) => (
-                <div key={item.desc} className="flex items-center justify-between py-2 border-b" style={{ borderColor: COLORS.border }}>
-                  <div>
-                    <p className="text-xs font-medium" style={{ color: COLORS.text, fontFamily: "Inter" }}>{item.desc}</p>
-                    <p className="text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{item.parcelas}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>{item.total}</p>
-                    <div className="flex gap-0.5 mt-1 justify-end">
-                      {[...Array(4)].map((_, i) => (
-                        <div key={i} className="w-2 h-2 rounded-full" style={{ background: i < item.status ? COLORS.green : "#EDE9E0" }} />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card pequeno: Planejamento */}
-          <div
-            className="md:col-span-1 lg:col-span-2 rounded-2xl p-5"
-            style={{ background: COLORS.olive }}
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: "rgba(248,246,241,0.15)" }}>
-                <Calendar size={16} color={COLORS.textLight} />
-              </div>
-              <h3 className="font-bold text-sm" style={{ color: COLORS.textLight, fontFamily: "Sora" }}>Planejamento de safra</h3>
-            </div>
-            <div className="flex flex-col gap-2">
-              {[
-                { fase: "Plantio", date: "15 Out", done: true },
-                { fase: "Adubação", date: "02 Nov", done: true },
-                { fase: "Defensivos", date: "18 Nov", done: false },
-                { fase: "Colheita", date: "Mar 25", done: false },
-              ].map((f) => (
-                <div key={f.fase} className="flex items-center gap-2.5">
-                  <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: f.done ? COLORS.gold : "rgba(248,246,241,0.2)" }}>
-                    {f.done && <Check size={9} color={COLORS.text} strokeWidth={3} />}
-                  </div>
-                  <span className="text-xs flex-1" style={{ color: f.done ? "rgba(248,246,241,0.9)" : "rgba(248,246,241,0.6)", fontFamily: "Inter" }}>{f.fase}</span>
-                  <span className="text-xs font-medium" style={{ color: COLORS.gold, fontFamily: "Sora" }}>{f.date}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Card grande: NLP */}
-          <div
-            className="md:col-span-3 lg:col-span-6 rounded-2xl p-6"
-            style={{ background: "#1A2B1F" }}
-          >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-              <div>
-                <div className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full mb-4" style={{ background: "rgba(201,162,75,0.15)", color: COLORS.gold, border: "1px solid rgba(201,162,75,0.2)" }}>
-                  <Zap size={12} color={COLORS.gold} />
-                  Linguagem natural
-                </div>
-                <h3 className="text-2xl font-bold mb-3" style={{ color: COLORS.textLight, fontFamily: "Sora" }}>
-                  Fale como você fala. O agente entende.
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "rgba(248,246,241,0.6)", fontFamily: "Inter" }}>
-                  Nosso motor de NLP foi treinado com o vocabulário do agro brasileiro. Talhão, safra, custeio, arrendamento — o agente categoriza tudo automaticamente, sem você configurar nada.
-                </p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {["Talhão", "Safra 24/25", "Custeio", "Arrendamento", "Colheita", "Insumos"].map((tag) => (
-                    <span key={tag} className="text-xs px-3 py-1 rounded-full" style={{ background: "rgba(201,162,75,0.1)", color: COLORS.gold, border: "1px solid rgba(201,162,75,0.15)", fontFamily: "Inter" }}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Chat NLP demo */}
-              <div className="rounded-2xl p-4" style={{ background: "#ECE5DD" }}>
-                {[
-                  { from: "user", text: "Paguei 3 diárias pro pessoal da colheita, R$ 250 cada" },
-                  { from: "agent", text: "Entendido! 3× R$ 250 = R$ 750 → Mão de obra / Colheita. Confirmo?" },
-                  { from: "user", text: "Sim" },
-                  { from: "agent", text: "✅ R$ 750 registrado! Mão de obra este mês: R$ 15.550 de R$ 22.000 planejados." },
-                ].map((m, i) => (
-                  <div key={i} className={`flex mb-2 ${m.from === "user" ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className="px-3 py-2 max-w-[85%] text-xs leading-relaxed shadow-sm"
-                      style={{
-                        background: m.from === "user" ? "#DCF8C6" : "white",
-                        borderRadius: m.from === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-                        fontFamily: "Inter",
-                        color: COLORS.text,
-                      }}
-                    >
-                      {m.text}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ForWhomSection() {
-  const cards = [
-    {
-      title: "Produtor rural",
-      photo: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600&h=400&fit=crop&auto=format",
-      bullets: [
-        "Registre gastos na hora, no campo",
-        "Saiba onde vai cada real da safra",
-        "Relatórios prontos para o banco",
-        "Sem planilha, sem app complicado",
-      ],
-      icon: <Tractor size={18} color={COLORS.gold} />,
-    },
-    {
-      title: "Consultor agrícola",
-      photo: "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=600&h=400&fit=crop&auto=format",
-      bullets: [
-        "Gerencie múltiplos clientes",
-        "Dados financeiros em tempo real",
-        "Relatórios para apresentação",
-        "Alertas automáticos por cliente",
-      ],
-      icon: <ClipboardList size={18} color={COLORS.gold} />,
-    },
-    {
-      title: "Gestor de fazenda",
-      photo: "https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=600&h=400&fit=crop&auto=format",
-      bullets: [
-        "Visão consolidada de todas as fazendas",
-        "Controle por talhão e equipe",
-        "Aprovação de gastos pelo WhatsApp",
-        "Dashboard executivo completo",
-      ],
-      icon: <BarChart3 size={18} color={COLORS.gold} />,
-    },
-  ];
-
-  return (
-    <section className="py-24 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: COLORS.gold, fontFamily: "Inter" }}>
-            Para quem é
-          </p>
-          <h2 className="text-4xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-            Do campo ao escritório, o Rédeas se adapta
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {cards.map((card) => (
+        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+          {plans.map((plan, index) => (
             <div
-              key={card.title}
-              className="rounded-2xl overflow-hidden group"
-              style={{ border: `1px solid ${COLORS.border}`, boxShadow: "0 2px 16px rgba(31,61,43,0.07)" }}
+              key={plan.code}
+              className={`rounded-lg border p-7 ${
+                index === 0
+                  ? "border-[#d8b24b] bg-[#fffdf4] shadow-sm"
+                  : "border-[#d8ddcf] bg-white"
+              }`}
             >
-              <div className="relative h-48 overflow-hidden" style={{ background: COLORS.muted }}>
-                <img
-                  src={card.photo}
-                  alt={card.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(31,61,43,0.7) 0%, transparent 60%)" }} />
-                <div className="absolute bottom-4 left-4 flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "rgba(201,162,75,0.2)", backdropFilter: "blur(8px)" }}>
-                    {card.icon}
-                  </div>
-                  <h3 className="text-lg font-bold text-white" style={{ fontFamily: "Sora" }}>{card.title}</h3>
-                </div>
-              </div>
-              <div className="p-6" style={{ background: COLORS.cardBg }}>
-                <ul className="flex flex-col gap-3">
-                  {card.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-3">
-                      <Check size={15} color={COLORS.gold} className="mt-0.5 flex-shrink-0" />
-                      <span className="text-sm" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TestimonialsSection() {
-  const [current, setCurrent] = useState(0);
-
-  return (
-    <section className="py-24 px-6" style={{ background: "#F0EDE5" }}>
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: COLORS.gold, fontFamily: "Inter" }}>
-            Depoimentos
-          </p>
-          <h2 className="text-4xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-            Quem usa, recomenda
-          </h2>
-        </div>
-
-        {/* Desktop: 3 cards */}
-        <div className="hidden md:grid grid-cols-3 gap-6">
-          {testimonials.map((t) => (
-            <div
-              key={t.name}
-              className="rounded-2xl p-7"
-              style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, boxShadow: "0 2px 20px rgba(31,61,43,0.07)" }}
-            >
-              <div className="flex gap-1 mb-5">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} size={14} fill={COLORS.gold} color={COLORS.gold} />
-                ))}
-              </div>
-              <p className="text-sm leading-relaxed mb-6" style={{ color: COLORS.text, fontFamily: "Inter" }}>
-                "{t.text}"
-              </p>
-              <div className="flex items-center gap-3">
-                <img src={t.photo} alt={t.name} className="w-11 h-11 rounded-full object-cover" style={{ background: COLORS.muted }} />
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: COLORS.green, fontFamily: "Sora" }}>{t.name}</p>
-                  <p className="text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{t.role} · {t.location}</p>
+                  <p className="text-sm font-semibold text-[#7b6b2d]">{plan.code}</p>
+                  <h3 className="mt-2 text-2xl font-bold text-[#183523]">{plan.name}</h3>
+                  <p className="mt-3 text-[#5d6b57]">{plan.description}</p>
+                </div>
+                <div className="text-left sm:text-right">
+                  <p className="text-3xl font-bold text-[#21442e]">{plan.price}</p>
                 </div>
               </div>
+              <ul className="mt-7 space-y-3">
+                {plan.includes.map((item) => (
+                  <li key={item} className="flex gap-3 text-[#30442c]">
+                    <Check className="mt-0.5 shrink-0 text-[#427a4c]" size={18} />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              {plan.excludes && (
+                <p className="mt-5 rounded-lg bg-[#f3efe1] px-4 py-3 text-sm font-medium text-[#655a36]">
+                  {plan.excludes}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => scrollToCheckout(plan.code)}
+                className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#21442e] px-5 py-3.5 font-bold text-white transition hover:bg-[#183523]"
+              >
+                Assinar este plano
+                <ArrowRight size={18} />
+              </button>
             </div>
           ))}
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* Mobile: carrossel */}
-        <div className="md:hidden">
-          <div
-            className="rounded-2xl p-7"
-            style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}` }}
-          >
-            <div className="flex gap-1 mb-5">
-              {[...Array(5)].map((_, i) => <Star key={i} size={14} fill={COLORS.gold} color={COLORS.gold} />)}
-            </div>
-            <p className="text-sm leading-relaxed mb-6" style={{ color: COLORS.text, fontFamily: "Inter" }}>
-              "{testimonials[current].text}"
+function Benefits() {
+  const items = [
+    { icon: WalletCards, title: "Controle financeiro", text: "Organize despesas e receitas da fazenda pelo WhatsApp." },
+    { icon: CalendarClock, title: "Agenda agro", text: "Registre compromissos e atividades do dia a dia rural." },
+    { icon: Tractor, title: "Rotina de campo", text: "Feito para produtor, consultor agro e pequenas fazendas." },
+    { icon: MapPin, title: "Fazenda vinculada", text: "A API cria a fazenda após o pagamento aprovado." },
+  ];
+
+  return (
+    <section className="bg-[#21442e] px-5 py-20 text-white">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide text-[#d8b24b]">Para o agro real</p>
+            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+              Menos sistema, mais conversa no canal que o produtor já usa.
+            </h2>
+            <p className="mt-5 leading-7 text-[#dce8d8]">
+              O Redeas não substitui o pagamento nem cria acesso antes da aprovação. Ele recebe a liberação do backend e começa no WhatsApp certo.
             </p>
-            <div className="flex items-center gap-3">
-              <img src={testimonials[current].photo} alt={testimonials[current].name} className="w-11 h-11 rounded-full object-cover" />
-              <div>
-                <p className="text-sm font-semibold" style={{ color: COLORS.green, fontFamily: "Sora" }}>{testimonials[current].name}</p>
-                <p className="text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>{testimonials[current].role} · {testimonials[current].location}</p>
-              </div>
-            </div>
           </div>
-          <div className="flex justify-center gap-2 mt-4">
-            {testimonials.map((_, i) => (
-              <button key={i} onClick={() => setCurrent(i)} className="w-2 h-2 rounded-full transition-all" style={{ background: i === current ? COLORS.gold : COLORS.border }} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {items.map((item) => (
+              <div key={item.title} className="rounded-lg border border-white/14 bg-white/8 p-5">
+                <item.icon className="text-[#d8b24b]" size={25} />
+                <h3 className="mt-4 text-lg font-bold">{item.title}</h3>
+                <p className="mt-2 leading-6 text-[#dce8d8]">{item.text}</p>
+              </div>
             ))}
           </div>
         </div>
@@ -1067,318 +408,308 @@ function TestimonialsSection() {
   );
 }
 
-function PricingSection() {
-  return (
-    <section id="planos" className="py-24 px-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: COLORS.gold, fontFamily: "Inter" }}>
-            Planos
-          </p>
-          <h2 className="text-4xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-            Simples, sem surpresa
-          </h2>
-          <p className="mt-3 text-base" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-            15 dias grátis. Sem cartão de crédito.
-          </p>
-        </div>
+function CheckoutForm() {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [form, setForm] = useState<FormState>(initialForm);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className="rounded-2xl p-7 relative"
-              style={{
-                background: plan.featured ? COLORS.green : COLORS.cardBg,
-                border: plan.featured ? `2px solid ${COLORS.gold}` : `1px solid ${COLORS.border}`,
-                boxShadow: plan.featured ? "0 8px 40px rgba(31,61,43,0.25)" : "0 2px 16px rgba(31,61,43,0.06)",
-              }}
-            >
-              {plan.featured && (
-                <div
-                  className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold"
-                  style={{ background: COLORS.gold, color: COLORS.text, fontFamily: "Sora", whiteSpace: "nowrap" }}
-                >
-                  ★ Mais escolhido
-                </div>
-              )}
+  useEffect(() => {
+    const listener = (event: Event) => {
+      const planCode = (event as CustomEvent<PlanCode>).detail;
+      setForm((current) => ({ ...current, planCode }));
+      setTimeout(() => formRef.current?.querySelector<HTMLInputElement>("#name")?.focus(), 350);
+    };
+    window.addEventListener("redeas:select-plan", listener);
+    return () => window.removeEventListener("redeas:select-plan", listener);
+  }, []);
 
-              <div className="mb-5">
-                <h3
-                  className="text-lg font-bold mb-1"
-                  style={{ color: plan.featured ? COLORS.textLight : COLORS.green, fontFamily: "Sora" }}
-                >
-                  {plan.name}
-                </h3>
-                <p className="text-xs leading-relaxed" style={{ color: plan.featured ? "rgba(248,246,241,0.6)" : COLORS.muted, fontFamily: "Inter" }}>
-                  {plan.desc}
-                </p>
-              </div>
+  const selectedPlan = plans.find((plan) => plan.code === form.planCode) || plans[0];
 
-              <div className="mb-6">
-                <span className="text-4xl font-bold" style={{ color: plan.featured ? COLORS.gold : COLORS.green, fontFamily: "Sora" }}>
-                  {plan.price}
-                </span>
-                {plan.period && (
-                  <span className="text-sm ml-1" style={{ color: plan.featured ? "rgba(248,246,241,0.5)" : COLORS.muted, fontFamily: "Inter" }}>
-                    {plan.period}
-                  </span>
-                )}
-              </div>
+  function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
+    setForm((current) => ({ ...current, [field]: value }));
+  }
 
-              <ul className="flex flex-col gap-3 mb-8">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-3">
-                    <Check size={15} color={plan.featured ? COLORS.gold : COLORS.olive} className="flex-shrink-0" />
-                    <span className="text-sm" style={{ color: plan.featured ? "rgba(248,246,241,0.85)" : COLORS.text, fontFamily: "Inter" }}>
-                      {f}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+  function validate() {
+    const required: Array<[keyof FormState, string]> = [
+      ["name", "Informe o nome completo."],
+      ["phone", "Informe o telefone WhatsApp."],
+      ["email", "Informe o email."],
+      ["farmName", "Informe o nome da fazenda."],
+      ["city", "Informe a cidade."],
+      ["state", "Informe a UF."],
+      ["mainActivity", "Informe a atividade ou cultura principal."],
+    ];
 
-              {plan.featured ? (
-                <a
-                  href={WHATSAPP_CTA_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center py-3.5 rounded-xl font-semibold text-sm transition-all hover:opacity-90 active:scale-95"
-                  style={{ background: COLORS.gold, color: COLORS.text, fontFamily: "Sora" }}
-                >
-                  Teste grátis por 15 dias
-                </a>
-              ) : (
-                <a
-                  href={WHATSAPP_CTA_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center py-3.5 rounded-xl font-semibold text-sm transition-all hover:opacity-80"
-                  style={{
-                    background: "transparent",
-                    color: plan.featured ? COLORS.textLight : COLORS.green,
-                    border: `1.5px solid ${plan.featured ? "rgba(248,246,241,0.3)" : COLORS.border}`,
-                    fontFamily: "Sora",
-                  }}
-                >
-                  {plan.name === "Empresarial" ? "Falar com vendas" : "Começar grátis"}
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+    for (const [field, message] of required) {
+      if (!String(form[field]).trim()) return message;
+    }
 
-function FAQSection() {
-  const [open, setOpen] = useState<number | null>(null);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      return "Informe um email válido.";
+    }
+
+    return "";
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await saveCheckoutLead({
+        ...form,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        farmName: form.farmName.trim(),
+        city: form.city.trim(),
+        mainActivity: form.mainActivity.trim(),
+        source: "landing_checkout",
+      }).catch((leadError) => {
+        console.warn(leadError);
+      });
+
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/checkouts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planCode: form.planCode,
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim(),
+          farmName: form.farmName.trim(),
+          city: form.city.trim(),
+          state: form.state,
+          mainActivity: form.mainActivity.trim(),
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+      const checkoutUrl = result?.data?.checkoutUrl;
+
+      if (!response.ok || !result?.success || !checkoutUrl) {
+        throw new Error(result?.message || "Não foi possível criar o checkout. Confira os dados e tente novamente.");
+      }
+
+      window.location.assign(checkoutUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao criar o checkout. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <section id="faq" className="py-24 px-6" style={{ background: "#F0EDE5" }}>
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: COLORS.gold, fontFamily: "Inter" }}>
-            FAQ
-          </p>
-          <h2 className="text-4xl font-bold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-            Perguntas frequentes
+    <section id="checkout" className="bg-[#eef0e5] px-5 py-20">
+      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.82fr_1.18fr]">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Assinatura</p>
+          <h2 className="mt-3 text-3xl font-bold text-[#183523] sm:text-4xl">
+            Preencha os dados antes de ir para o pagamento
           </h2>
+          <p className="mt-5 leading-7 text-[#5d6b57]">
+            Use o mesmo número de WhatsApp que vai conversar com o agente. Depois do pagamento aprovado, o backend cria o usuário, ativa a assinatura e libera o contato.
+          </p>
+
+          <div className="mt-8 rounded-lg border border-[#d8ddcf] bg-white p-5">
+            <p className="text-sm font-semibold text-[#6c5d27]">Plano escolhido</p>
+            <h3 className="mt-2 text-2xl font-bold text-[#21442e]">{selectedPlan.name}</h3>
+            <p className="mt-1 text-xl font-bold text-[#183523]">{selectedPlan.price}</p>
+            <p className="mt-3 leading-6 text-[#5d6b57]">{selectedPlan.description}</p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {faqItems.map((item, i) => (
-            <div
-              key={i}
-              className="rounded-2xl overflow-hidden"
-              style={{ background: COLORS.cardBg, border: `1px solid ${COLORS.border}` }}
-            >
-              <button
-                className="w-full px-6 py-5 flex items-center justify-between text-left gap-4 transition-colors hover:bg-stone-50"
-                onClick={() => setOpen(open === i ? null : i)}
+        <form ref={formRef} onSubmit={handleSubmit} className="rounded-lg border border-[#d8ddcf] bg-white p-5 shadow-sm sm:p-7">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="sm:col-span-2">
+              <span className="text-sm font-semibold text-[#30442c]">Plano escolhido</span>
+              <select
+                value={form.planCode}
+                onChange={(event) => updateField("planCode", event.target.value as PlanCode)}
+                className="mt-2 h-12 w-full rounded-lg border border-[#cbd3c2] bg-white px-3 text-[#1d261b] outline-none focus:border-[#21442e] focus:ring-2 focus:ring-[#21442e]/15"
               >
-                <span className="text-sm font-semibold" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-                  {item.q}
-                </span>
-                <ChevronDown
-                  size={18}
-                  color={COLORS.gold}
-                  className="flex-shrink-0 transition-transform duration-200"
-                  style={{ transform: open === i ? "rotate(180deg)" : "rotate(0deg)" }}
-                />
-              </button>
-              {open === i && (
-                <div className="px-6 pb-5">
-                  <p className="text-sm leading-relaxed" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-                    {item.a}
-                  </p>
-                </div>
-              )}
+                {plans.map((plan) => (
+                  <option key={plan.code} value={plan.code}>
+                    {plan.name} - {plan.price}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <Input label="Nome completo" id="name" value={form.name} onChange={(value) => updateField("name", value)} autoComplete="name" />
+            <Input label="Telefone WhatsApp" value={form.phone} onChange={(value) => updateField("phone", value)} placeholder="(44) 99999-9999" autoComplete="tel" />
+            <Input label="Email" value={form.email} onChange={(value) => updateField("email", value)} type="email" autoComplete="email" />
+            <Input label="Nome da fazenda" value={form.farmName} onChange={(value) => updateField("farmName", value)} />
+            <Input label="Cidade" value={form.city} onChange={(value) => updateField("city", value)} />
+
+            <label>
+              <span className="text-sm font-semibold text-[#30442c]">UF</span>
+              <select
+                value={form.state}
+                onChange={(event) => updateField("state", event.target.value)}
+                className="mt-2 h-12 w-full rounded-lg border border-[#cbd3c2] bg-white px-3 text-[#1d261b] outline-none focus:border-[#21442e] focus:ring-2 focus:ring-[#21442e]/15"
+              >
+                <option value="">Selecione</option>
+                {stateOptions.map((state) => (
+                  <option key={state} value={state}>
+                    {state}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <Input
+              label="Atividade principal/cultura principal"
+              value={form.mainActivity}
+              onChange={(value) => updateField("mainActivity", value)}
+              placeholder="soja, leite, café..."
+              className="sm:col-span-2"
+            />
+          </div>
+
+          {error && (
+            <div className="mt-5 rounded-lg border border-[#e0a7a7] bg-[#fff4f4] px-4 py-3 text-sm font-medium text-[#8d2727]">
+              {error}
             </div>
-          ))}
-        </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-6 inline-flex h-13 w-full items-center justify-center gap-2 rounded-lg bg-[#21442e] px-5 py-4 font-bold text-white transition hover:bg-[#183523] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" size={19} />
+                Criando checkout...
+              </>
+            ) : (
+              <>
+                Ir para pagamento
+                <ArrowRight size={19} />
+              </>
+            )}
+          </button>
+
+          <p className="mt-4 text-sm leading-6 text-[#5d6b57]">
+            O acesso ao WhatsApp só é liberado após a confirmação do pagamento.
+          </p>
+        </form>
       </div>
     </section>
   );
 }
 
-function FinalCTA() {
+function Input({
+  label,
+  value,
+  onChange,
+  id,
+  type = "text",
+  placeholder,
+  autoComplete,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  id?: string;
+  type?: string;
+  placeholder?: string;
+  autoComplete?: string;
+  className?: string;
+}) {
   return (
-    <section className="py-24 px-6 relative overflow-hidden" style={{ background: COLORS.green }}>
-      {/* Subtle texture */}
-      <div
-        className="absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage: `repeating-linear-gradient(45deg, #F8F6F1 0px, #F8F6F1 1px, transparent 1px, transparent 12px), repeating-linear-gradient(-45deg, #F8F6F1 0px, #F8F6F1 1px, transparent 1px, transparent 12px)`,
-        }}
+    <label className={className}>
+      <span className="text-sm font-semibold text-[#30442c]">{label}</span>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        className="mt-2 h-12 w-full rounded-lg border border-[#cbd3c2] bg-white px-3 text-[#1d261b] outline-none focus:border-[#21442e] focus:ring-2 focus:ring-[#21442e]/15"
       />
+    </label>
+  );
+}
 
-      <div className="max-w-3xl mx-auto text-center relative z-10">
-        <div className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full mb-8" style={{ background: "rgba(201,162,75,0.15)", color: COLORS.gold, border: "1px solid rgba(201,162,75,0.25)" }}>
-          <ShieldCheck size={13} color={COLORS.gold} />
-          Sem cartão de crédito • Cancele quando quiser
+function PaymentStatus({ type }: { type: "approved" | "cancelled" }) {
+  const approved = type === "approved";
+
+  return (
+    <main className="min-h-screen bg-[#fbfaf6]">
+      <Header />
+      <section className="mx-auto flex max-w-3xl flex-col items-start px-5 py-20">
+        <div className="rounded-lg border border-[#d8ddcf] bg-white p-8 shadow-sm">
+          <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-lg ${approved ? "bg-[#e5f1df] text-[#21442e]" : "bg-[#fff2d2] text-[#755e1d]"}`}>
+            {approved ? <Check size={25} /> : <CreditCard size={25} />}
+          </div>
+          <h1 className="text-3xl font-bold text-[#183523]">
+            {approved ? "Pagamento recebido" : "Pagamento cancelado"}
+          </h1>
+          <p className="mt-4 leading-7 text-[#5d6b57]">
+            {approved
+              ? "Recebemos o retorno do pagamento. O WhatsApp será liberado após a confirmação da aprovação pela operadora."
+              : "O checkout não foi concluído. Você pode voltar para a landing, conferir os dados e tentar novamente."}
+          </p>
+          <a
+            href="/"
+            className="mt-7 inline-flex items-center gap-2 rounded-lg bg-[#21442e] px-5 py-3 font-bold text-white transition hover:bg-[#183523]"
+          >
+            Voltar para a landing
+            <ArrowRight size={18} />
+          </a>
         </div>
-
-        <h2
-          className="text-4xl md:text-5xl font-bold mb-5 leading-tight"
-          style={{ color: COLORS.textLight, fontFamily: "Sora", letterSpacing: "-0.03em" }}
-        >
-          Cadastre, teste 15 dias e assine quando fizer sentido
-        </h2>
-        <p className="text-base mb-10 leading-relaxed" style={{ color: "rgba(248,246,241,0.65)", fontFamily: "Inter" }}>
-          Comece hoje com a fazenda organizada no WhatsApp. Se não fizer sentido, é só parar — sem burocracia.
-        </p>
-
-        <a
-          href={WHATSAPP_CTA_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-block px-10 py-5 rounded-2xl font-bold text-base transition-all hover:opacity-90 active:scale-95 shadow-xl"
-          style={{
-            background: COLORS.gold,
-            color: COLORS.text,
-            fontFamily: "Sora",
-            fontSize: "1.05rem",
-            boxShadow: "0 8px 32px rgba(201,162,75,0.4)",
-          }}
-        >
-          Teste grátis por 15 dias
-        </a>
-
-        <div className="mt-8 flex flex-wrap justify-center gap-6">
-          {["Sem cartão", "Cancele quando quiser", "Dados seguros (LGPD)", "Suporte via WhatsApp"].map((f) => (
-            <span key={f} className="flex items-center gap-1.5 text-sm" style={{ color: "rgba(248,246,241,0.6)", fontFamily: "Inter" }}>
-              <Check size={13} color={COLORS.gold} />
-              {f}
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
+      </section>
+    </main>
   );
 }
 
 function Footer() {
-  const cols = [
-    {
-      title: "Produto",
-      links: ["Como funciona", "Recursos", "Planos", "Changelog", "Status"],
-    },
-    {
-      title: "Empresa",
-      links: ["Sobre nós", "Blog", "Carreiras", "Imprensa", "Contato"],
-    },
-    {
-      title: "Legal",
-      links: ["Termos de uso", "Privacidade", "Cookies", "LGPD", "Segurança"],
-    },
-  ];
-
   return (
-    <footer className="py-16 px-6 border-t" style={{ borderColor: COLORS.border }}>
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-12">
-          {/* Logo + desc */}
-          <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: COLORS.green }}>
-                <Sprout size={16} color={COLORS.gold} />
-              </div>
-              <span className="text-xl font-bold" style={{ fontFamily: "Sora", color: COLORS.green }}>Rédeas</span>
-            </div>
-            <p className="text-sm leading-relaxed" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-              Agente financeiro agrícola no WhatsApp. Controle total da sua fazenda, sem planilha.
-            </p>
-          </div>
-
-          {cols.map((col) => (
-            <div key={col.title}>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: COLORS.green, fontFamily: "Sora" }}>
-                {col.title}
-              </p>
-              <ul className="flex flex-col gap-2.5">
-                {col.links.map((l) => (
-                  <li key={l}>
-                    <a href="#" className="text-sm transition-colors hover:opacity-60" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-                      {l}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4" style={{ borderColor: COLORS.border }}>
-          <p className="text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-            © 2025 Rédeas Tecnologia Agrícola Ltda. Todos os direitos reservados.
-          </p>
-          <p className="text-xs" style={{ color: COLORS.muted, fontFamily: "Inter" }}>
-            Feito com cuidado para o produtor brasileiro 🌱
-          </p>
-        </div>
+    <footer className="border-t border-[#d8ddcf] bg-[#fbfaf6] px-5 py-10">
+      <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 text-sm text-[#5d6b57] md:flex-row md:items-center">
+        <Brand />
+        <p>Cadastro pela landing. Liberação no WhatsApp somente após pagamento aprovado.</p>
       </div>
     </footer>
   );
 }
 
-function LandingPage({ onLogin }: { onLogin: () => void }) {
+function LandingPage() {
   return (
-    <div className="min-h-screen" style={{ background: COLORS.bg }}>
-      <Navbar onLogin={onLogin} />
-      <HeroSection />
-      <LogoBar />
+    <main>
+      <Header />
+      <Hero />
       <HowItWorks />
-      <ResourcesSection />
-      <ForWhomSection />
-      <TestimonialsSection />
-      <PricingSection />
-      <FAQSection />
-      <FinalCTA />
+      <Plans />
+      <Benefits />
+      <CheckoutForm />
       <Footer />
-    </div>
+    </main>
   );
 }
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const path = window.location.pathname.replace(/\/$/, "");
 
-  if (isAuthenticated) {
-    return <ChatApp onLogout={() => setIsAuthenticated(false)} />;
+  if (path === "/pagamento/aprovado") {
+    return <PaymentStatus type="approved" />;
   }
 
-  return (
-    <>
-      <LandingPage onLogin={() => setLoginOpen(true)} />
-      <LoginModal
-        isOpen={loginOpen}
-        onClose={() => setLoginOpen(false)}
-        onLogin={() => {
-          setLoginOpen(false);
-          setIsAuthenticated(true);
-        }}
-      />
-    </>
-  );
+  if (path === "/pagamento/cancelado") {
+    return <PaymentStatus type="cancelled" />;
+  }
+
+  return <LandingPage />;
 }
