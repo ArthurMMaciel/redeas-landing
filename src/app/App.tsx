@@ -359,7 +359,7 @@ function PhoneMock({ conversationStep }: { conversationStep: number }) {
             Quanto tenho a pagar esta semana?<small>09:13</small>
           </div>
           <div className={chatClass(7, "bub bot")}>
-            A pagar: <b>R$ 9.640</b>. Proximo: Pronaf dia 15.<small>09:13</small>
+            A pagar esta semana: <b>R$ 9.640</b>.<small>09:13</small>
           </div>
           <div className="balance-thread">
             <div className={chatClass(8, "bub me")}>
