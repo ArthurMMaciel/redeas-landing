@@ -1,20 +1,21 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
-  CalendarClock,
+  BarChart3,
+  Bell,
+  CalendarDays,
   Check,
-  ChevronRight,
-  ClipboardCheck,
   CreditCard,
+  Leaf,
   Loader2,
-  MapPin,
   MessageCircle,
-  Phone,
+  PiggyBank,
   ShieldCheck,
   Sprout,
-  Tractor,
   WalletCards,
 } from "lucide-react";
+import redeasLogo from "../assets/redeas-logo-transparent.png";
+import "../styles/landing.css";
 
 type PlanCode = "finance_basic" | "finance_safra";
 
@@ -29,28 +30,45 @@ type FormState = {
   mainActivity: string;
 };
 
-const plans: Array<{
+type Plan = {
   code: PlanCode;
   name: string;
   price: string;
+  anchor: string;
   description: string;
+  featured?: boolean;
   includes: string[];
-  excludes?: string;
-}> = [
+};
+
+const plans: Plan[] = [
   {
     code: "finance_basic",
-    name: "Controle Financeiro",
-    price: "R$ 25,90/mês",
-    description: "Para começar o controle da fazenda pelo WhatsApp.",
-    includes: ["Controle financeiro pelo WhatsApp", "Agenda agro", "Cadastro da fazenda no pagamento"],
-    excludes: "Não inclui planejamento de safra.",
+    name: "Essencial",
+    anchor: "de R$ 39,90",
+    price: "R$ 25,90",
+    description: "Controle básico do dia a dia",
+    includes: [
+      "Registro de entradas e saídas pelo WhatsApp",
+      "Contas a pagar e a receber",
+      "Resumo financeiro mensal",
+      "Acesso pelo celular",
+    ],
   },
   {
     code: "finance_safra",
-    name: "Financeiro + Safra",
-    price: "R$ 65,00/mês",
-    description: "Para quem quer organizar dinheiro, agenda e planejamento.",
-    includes: ["Controle financeiro pelo WhatsApp", "Agenda agro", "Planejamento de safra"],
+    name: "Completo",
+    anchor: "de R$ 69,90",
+    price: "R$ 47,90",
+    description: "Gestão financeira com visão de decisão",
+    featured: true,
+    includes: [
+      "Tudo do plano Essencial",
+      "Relatório detalhado",
+      "Análise por safra / atividade",
+      "Alertas financeiros",
+      "Planejamento e projeção",
+      "Dashboard completo",
+    ],
   },
 ];
 
@@ -150,110 +168,459 @@ function scrollToCheckout(planCode: PlanCode) {
 
 function Brand() {
   return (
-    <a href="/" className="flex items-center gap-2" aria-label="Redeas">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#21442e] text-[#f3c85d]">
-        <Sprout size={19} />
-      </span>
-      <span className="text-xl font-bold text-[#21442e]">Redeas</span>
+    <a href="/" className="brand" aria-label="Rédeas">
+      <img src={redeasLogo} alt="Rédeas" className="brand-logo" />
     </a>
   );
 }
 
 function Header() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    onScroll();
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[#d8ddcf] bg-[#fbfaf6]/92 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
+    <header className={scrolled ? "site-header scrolled" : "site-header"}>
+      <div className="wrap nav">
         <Brand />
-        <nav className="hidden items-center gap-7 text-sm font-medium text-[#4b5d45] md:flex">
+        <nav className="nav-links">
+          <a href="#recursos">Recursos</a>
           <a href="#como-funciona">Como funciona</a>
           <a href="#planos">Planos</a>
-          <a href="#checkout">Assinar</a>
+          <a href="#duvidas">Dúvidas</a>
         </nav>
-        <button
-          type="button"
-          onClick={() => scrollToCheckout("finance_basic")}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#21442e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#183523]"
-        >
-          Assinar
-          <ArrowRight size={16} />
-        </button>
+        <a href="#planos" className="btn btn-cta">
+          Começar agora
+        </a>
       </div>
     </header>
   );
 }
 
+function CheckIcon({ gold = false }: { gold?: boolean }) {
+  return <Check size={17} strokeWidth={2.8} className={gold ? "icon-gold" : "icon-green"} />;
+}
+
 function Hero() {
+  const conversationStep = useConversationDemo();
+
   return (
-    <section className="relative overflow-hidden bg-[#fbfaf6]">
-      <div className="absolute inset-x-0 bottom-0 h-36 bg-[#eef0e5]" />
-      <div className="mx-auto grid min-h-[calc(100vh+10rem)] max-w-7xl grid-cols-1 items-center gap-12 px-5 pb-14 pt-20 sm:pb-16 sm:pt-24 lg:min-h-[calc(100vh+12rem)] lg:grid-cols-[1.03fr_0.97fr] lg:pb-18 lg:pt-28">
-        <div className="relative z-10 max-w-3xl">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#d7c071] bg-[#fff6d8] px-4 py-2 text-sm font-semibold text-[#5d5121] shadow-sm">
-            <MessageCircle size={16} />
-            Assistente no WhatsApp para gestão da fazenda
-          </div>
-          <h1 className="max-w-2xl text-3xl font-bold leading-[1.12] text-[#183523] sm:text-4xl lg:text-5xl">
-            Controle financeiro e rotina da fazenda direto pelo WhatsApp
+    <section className="hero">
+      <div className="wrap hero-grid">
+        <div>
+          <span className="eyebrow-h">
+            <MessageCircle size={20} />
+            IA no WhatsApp <b>feita pro agro</b>
+          </span>
+          <h1>
+            Assuma o controle financeiro da sua <span className="gold">fazenda</span>.
           </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-[#4f5c49]">
-            Registre gastos, acompanhe tarefas e organize sua operação sem instalar aplicativo ou acessar sistema complicado.
+          <p className="sub">
+            O assessor que organiza o caixa e a agenda da sua propriedade, direto no WhatsApp. Você fala, o Rédeas anota.
+            Sem planilha, sem app novo.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={() => scrollToCheckout("finance_basic")}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d8b24b] px-7 py-4 font-bold text-[#1d261b] shadow-[0_16px_34px_rgba(155,122,39,0.22)] transition hover:bg-[#caa13e] hover:shadow-[0_18px_38px_rgba(155,122,39,0.28)]"
-            >
-              Começar agora
-              <ChevronRight size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToCheckout("finance_safra")}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#aebaa5] bg-white/70 px-7 py-4 font-semibold text-[#21442e] transition hover:border-[#21442e] hover:bg-white"
-            >
-              Ver planos
-            </button>
+          <div className="hero-cta">
+            <a href="#planos" className="btn btn-cta">
+              Quero organizar minha fazenda
+            </a>
+            <span className="mini">
+              <ShieldCheck size={20} /> 7 dias de garantia
+            </span>
           </div>
-          <div className="mt-7 flex max-w-2xl flex-wrap gap-2.5 text-[13px] font-medium leading-5 text-[#586653]">
-            <span className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-lg border border-[#d8ddcf] bg-white/65 px-3 py-2">
-              <ShieldCheck size={16} className="shrink-0 text-[#21442e]" />
-              <span className="min-w-0 whitespace-normal">Ativação simples e segura</span>
-            </span>
-            <span className="inline-flex max-w-full min-w-0 items-center gap-2 rounded-lg border border-[#d8ddcf] bg-white/65 px-3 py-2">
-              <MessageCircle size={16} className="shrink-0 text-[#21442e]" />
-              <span className="min-w-0 whitespace-normal">Sem aplicativo extra</span>
-            </span>
+          <div className="proof">
+            <div className="avatars">
+              <span className="avatar-a">JP</span>
+              <span className="avatar-b">MA</span>
+              <span className="avatar-c">RC</span>
+            </div>
+            <p>Produtores de todo o Brasil já estão retomando as rédeas do próprio caixa.</p>
           </div>
         </div>
 
-        <div className="relative z-10">
-          <div className="overflow-hidden rounded-2xl border border-[#d8ddcf] bg-white shadow-[0_24px_60px_rgba(33,68,46,0.14)]">
-            <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80"
-                alt="Plantação agrícola vista do alto"
-                className="h-64 w-full object-cover sm:h-80 lg:h-[23rem]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#183523]/42 via-transparent to-transparent" />
-              <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-white/20 bg-white/88 p-4 shadow-lg backdrop-blur">
-                <p className="text-sm font-bold text-[#183523]">Gestão da fazenda em poucos minutos</p>
-                <p className="mt-1 text-sm leading-6 text-[#556250]">O cadastro é feito pela landing e a operação acontece pelo WhatsApp.</p>
-              </div>
+        <div className="phone-col">
+          <FloatingCard
+            className="f1"
+            icon={<Bell size={20} />}
+            title="Vencimento do Pronaf"
+            text="Lembrete criado"
+            visible={conversationStep >= 5}
+          />
+          <FloatingCard
+            className="f2 danger"
+            icon={<PiggyBank size={20} />}
+            title="+ R$ 26.000"
+            text="Venda de soja registrada"
+            visible={conversationStep >= 3}
+          />
+          <FloatingCard
+            className="f3"
+            icon={<WalletCards size={20} />}
+            title="R$ 42.350"
+            text="Saldo da safra"
+            visible={conversationStep >= 9}
+          />
+          <PhoneMock conversationStep={conversationStep} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function useConversationDemo() {
+  const [conversationStep, setConversationStep] = useState(0);
+
+  useEffect(() => {
+    const cycleDuration = 15500;
+    const timeline = [
+      [1, 500],
+      [2, 1600],
+      [3, 2700],
+      [4, 3900],
+      [5, 5100],
+      [6, 6300],
+      [7, 7500],
+      [8, 8700],
+      [9, 9900],
+    ] as const;
+
+    const timeouts: number[] = [];
+
+    const runCycle = () => {
+      setConversationStep(0);
+      timeline.forEach(([step, delay]) => {
+        timeouts.push(window.setTimeout(() => setConversationStep(step), delay));
+      });
+    };
+
+    runCycle();
+    const interval = window.setInterval(runCycle, cycleDuration);
+
+    return () => {
+      window.clearInterval(interval);
+      timeouts.forEach((timeout) => window.clearTimeout(timeout));
+    };
+  }, []);
+
+  return conversationStep;
+}
+
+function FloatingCard({
+  className,
+  icon,
+  title,
+  text,
+  visible,
+}: {
+  className: string;
+  icon: ReactNode;
+  title: string;
+  text: string;
+  visible: boolean;
+}) {
+  return (
+    <div className={`float chat-item ${visible ? "is-visible" : ""} ${className}`}>
+      <div className="fi">{icon}</div>
+      <div>
+        <b>{title}</b>
+        <small>{text}</small>
+      </div>
+    </div>
+  );
+}
+
+function PhoneMock({ conversationStep }: { conversationStep: number }) {
+  const chatClass = (showAt: number, baseClass: string) => `${baseClass} chat-item ${conversationStep >= showAt ? "is-visible" : ""}`;
+
+  return (
+    <div className="phone">
+      <div className="notch" />
+      <div className="screen">
+        <div className="scr-top">
+          <Sprout size={17} />
+          <b>Rédeas</b>
+          <span className="on">online</span>
+        </div>
+        <div className="scr-body">
+          <div className={chatClass(1, "bub me")}>
+            Vendi 200 sacas de soja a 130<small>09:12</small>
+          </div>
+          <div className={chatClass(3, "bub bot")}>
+            Registrado! Entrada de <b>R$ 26.000</b> na safra atual.<small>09:12</small>
+          </div>
+          <div className={chatClass(4, "bub me")}>
+            Me lembra do vencimento do Pronaf dia 15<small>09:13</small>
+          </div>
+          <div className={chatClass(6, "bub me")}>
+            Quanto tenho a pagar esta semana?<small>09:13</small>
+          </div>
+          <div className={chatClass(7, "bub bot")}>
+            A pagar: <b>R$ 9.640</b>. Proximo: Pronaf dia 15.<small>09:13</small>
+          </div>
+          <div className="balance-thread">
+            <div className={chatClass(8, "bub me")}>
+              Quero saber o saldo da minha safra<small>09:14</small>
             </div>
-            <div className="grid gap-0 border-t border-[#e3e6db] bg-[#fffefa] sm:grid-cols-3">
-              {[
-                ["WhatsApp", "Registre gastos e movimentações por mensagem."],
-                ["Agenda", "Receba lembretes e organize tarefas da fazenda."],
-                ["Safra", "Acompanhe o planejamento quando o plano incluir."],
-              ].map(([title, text]) => (
-                <div key={title} className="border-b border-[#e3e6db] p-5 sm:border-b-0 sm:border-r last:sm:border-r-0">
-                  <p className="font-bold text-[#21442e]">{title}</p>
-                  <p className="mt-2 text-sm leading-6 text-[#5f6c59]">{text}</p>
-                </div>
-              ))}
+            <div className={chatClass(9, "bub bot balance-answer")}>
+              Saldo da safra: <b>R$ 42.350,00</b>
+              <small>09:14</small>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Ticker() {
+  const items = ["Tudo pelo WhatsApp", "Anote por áudio", "Seus dados protegidos", "Feito por quem entende do agro", "Sem planilha", "Suporte humano"];
+  return (
+    <div className="ticker">
+      <div className="track">
+        {[...items, ...items].map((item, index) => (
+          <span key={`${item}-${index}`}>
+            <span className="dot">●</span>
+            {item}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeatureSections() {
+  return (
+    <>
+      <section id="recursos" className="section-cream">
+        <div className="wrap feat-row">
+          <FeatureCopy
+            eyebrow="Controle financeiro"
+            title={
+              <>
+                Anote seus gastos por <span className="gold">áudio ou texto</span>.
+              </>
+            }
+            text="Mandou mensagem, tá anotado. O Rédeas entende o jeito que você fala e categoriza tudo sozinho."
+            items={["Registre entradas e saídas em segundos", "Seus lançamentos já chegam categorizados", "Consulte o saldo da safra pelo WhatsApp"]}
+          />
+          <div className="feat-media">
+            <ChatMock />
+          </div>
+        </div>
+      </section>
+
+      <section className="section-orange">
+        <div className="wrap feat-row rev">
+          <div className="feat-media">
+            <DashboardMock />
+          </div>
+          <FeatureCopy
+            eyebrow="Seu painel"
+            title={
+              <>
+                Seu dinheiro organizado em <span className="gold">um só lugar</span>.
+              </>
+            }
+            text="Tudo o que entrou, o que saiu e o que falta pagar num painel simples. Você sempre sabe como está a fazenda."
+            items={["Veja seus gastos separados por categoria", "Saiba o que tem a pagar e a receber", "Descubra se a safra está dando lucro ou prejuízo"]}
+          />
+        </div>
+      </section>
+
+      <section className="section-beige">
+        <div className="wrap feat-row">
+          <FeatureCopy
+            eyebrow="Agenda inteligente"
+            title={
+              <>
+                Nunca mais perca um <span className="gold">vencimento</span>.
+              </>
+            }
+            text="Financiamento, vacina, pagamento de diarista. Você fala uma vez e o Rédeas lembra na hora certa."
+            items={["Lembretes de boletos e financiamentos", "Datas de manejo e vacinação do rebanho", "Resumo do dia direto no WhatsApp"]}
+          />
+          <div className="feat-media">
+            <AgendaMock />
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function FeatureCopy({
+  eyebrow,
+  title,
+  text,
+  items,
+}: {
+  eyebrow: string;
+  title: ReactNode;
+  text: string;
+  items: string[];
+}) {
+  return (
+    <div className="feat-copy">
+      <span className="eyebrow">{eyebrow}</span>
+      <h2 className="sec-title">{title}</h2>
+      <p className="sec-sub">{text}</p>
+      <ul className="feat-list">
+        {items.map((item) => (
+          <li key={item}>
+            <CheckIcon />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MockTop({ title }: { title: string }) {
+  return (
+    <div className="mock-top">
+      <Sprout size={16} />
+      {title}
+    </div>
+  );
+}
+
+function ChatMock() {
+  return (
+    <div className="mock">
+      <MockTop title="Rédeas" />
+      <div className="mock-body mock-chat">
+        <div className="bub me">
+          Paguei 500 de diesel<small>07:40</small>
+        </div>
+        <div className="bub bot">
+          Anotado! Saída de <b>R$ 500</b> em Combustível.<small>07:40</small>
+        </div>
+        <div className="bub me">
+          Quanto gastei esse mês?<small>07:41</small>
+        </div>
+        <div className="bub bot">
+          Você gastou <b>R$ 12.380</b>, maior parte em insumos (R$ 7.100).<small>07:41</small>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardMock() {
+  const rows = [
+    { icon: <WalletCards size={20} />, label: "Saldo da safra", value: "R$ 42.350", tone: "pos" },
+    { icon: <PiggyBank size={20} />, label: "A receber", value: "R$ 18.900" },
+    { icon: <Bell size={20} />, label: "A pagar", value: "R$ 9.640", tone: "neg" },
+    { icon: <BarChart3 size={20} />, label: "Insumos (mês)", value: "R$ 7.100" },
+  ];
+
+  return (
+    <div className="mock">
+      <MockTop title="Painel do Rédeas" />
+      <div className="mock-body">
+        {rows.map((row) => (
+          <div className="kv" key={row.label}>
+            <span className="tag">
+              <i>{row.icon}</i>
+              {row.label}
+            </span>
+            <b className={row.tone}>{row.value}</b>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AgendaMock() {
+  const items = [
+    ["15", "Jun", "Vencimento do Pronaf", "Financiamento • 09:00"],
+    ["18", "Jun", "Vacina do gado", "Manejo • manhã"],
+    ["20", "Jun", "Pagamento do diarista", "R$ 1.200"],
+  ];
+
+  return (
+    <div className="mock">
+      <MockTop title="Sua agenda" />
+      <div className="mock-body">
+        {items.map(([day, month, title, text]) => (
+          <div className="agenda-it" key={title}>
+            <div className="d">
+              <b>{day}</b>
+              <span>{month}</span>
+            </div>
+            <div>
+              <p>{title}</p>
+              <small>{text}</small>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UseYourWay() {
+  const chips = [
+    { icon: <WalletCards size={20} />, text: "Registrar um gasto" },
+    { icon: <PiggyBank size={20} />, text: "Lançar uma venda" },
+    { icon: <BarChart3 size={20} />, text: "Consultar o saldo" },
+    { icon: <Bell size={20} />, text: "Criar um lembrete" },
+    { icon: <CalendarDays size={20} />, text: "Ver a agenda da semana" },
+    { icon: <MessageCircle size={20} />, text: "Perguntar qualquer coisa" },
+  ];
+
+  return (
+    <section className="way">
+      <div className="wrap center">
+        <span className="eyebrow">Do seu jeito</span>
+        <h2 className="sec-title">
+          Não tem um jeito certo de usar. <span className="gold">Tem o seu.</span>
+        </h2>
+        <p className="sec-sub">É só falar, do jeito do campo. Com um áudio, você pode:</p>
+        <div className="chips-grid">
+          {chips.map((chip) => (
+            <div className="chip-b" key={chip.text}>
+              {chip.icon}
+              {chip.text}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Benefits() {
+  const cards = [
+    { icon: <MessageCircle size={22} />, title: "Controle pelo WhatsApp", text: "Lance contas e saldos em segundos, do jeito que você fala." },
+    { icon: <WalletCards size={22} />, title: "Clareza do seu caixa", text: "Saiba exatamente o que tem a pagar, a receber e o saldo real." },
+    { icon: <BarChart3 size={22} />, title: "Relatórios que decidem", text: "Dados organizados pra você ver o que dá lucro ou prejuízo." },
+    { icon: <Leaf size={22} />, title: "Feito para o agro", text: "Entendemos a fazenda porque construímos com quem vive nela." },
+  ];
+
+  return (
+    <section className="section-cream">
+      <div className="wrap center">
+        <span className="eyebrow">Por que produtores escolhem</span>
+        <h2 className="sec-title">
+          Por que escolher o <span className="gold">Rédeas</span>
+        </h2>
+      </div>
+      <div className="wrap">
+        <div className="cards4">
+          {cards.map((card) => (
+            <div className="card" key={card.title}>
+              <div className="ic">{card.icon}</div>
+              <h3>{card.title}</h3>
+              <p>{card.text}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -262,38 +629,24 @@ function Hero() {
 
 function HowItWorks() {
   const steps = [
-    {
-      icon: ClipboardCheck,
-      title: "Preencha o cadastro",
-      text: "Informe seus dados, fazenda, cidade, UF, cultura principal e o telefone que vai conversar com o agente.",
-    },
-    {
-      icon: CreditCard,
-      title: "Pague pelo checkout",
-      text: "Você segue para um pagamento seguro. A liberação acontece somente depois da aprovação.",
-    },
-    {
-      icon: MessageCircle,
-      title: "Receba a liberação",
-      text: 'Após aprovação, sua assinatura é ativada e você recebe: "Olá, sou rédeas, seu agente de controle financeiro e agenda agro."',
-    },
+    ["1", "Você envia pelo WhatsApp", "Fala o que entrou ou saiu. Ex: “Paguei 500 de diesel”."],
+    ["2", "O Rédeas organiza tudo", "O agente registra, categoriza e cuida do resto."],
+    ["3", "Você recebe clareza", "Dados organizados pra você tomar as melhores decisões."],
   ];
 
   return (
-    <section id="como-funciona" className="bg-[#eef0e5] px-5 pb-20 pt-12 sm:pt-14">
-      <div className="mx-auto max-w-7xl">
-        <div className="max-w-2xl">
-          <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Como funciona</p>
-          <h2 className="mt-3 text-3xl font-bold text-[#183523] sm:text-4xl">
-            O cadastro começa aqui. O WhatsApp vem depois do pagamento aprovado.
-          </h2>
-        </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {steps.map((step) => (
-            <div key={step.title} className="rounded-lg border border-[#d8ddcf] bg-white p-6">
-              <step.icon className="text-[#21442e]" size={28} />
-              <h3 className="mt-5 text-xl font-bold text-[#183523]">{step.title}</h3>
-              <p className="mt-3 leading-7 text-[#5d6b57]">{step.text}</p>
+    <section className="how" id="como-funciona">
+      <div className="wrap center">
+        <span className="eyebrow">Simples assim</span>
+        <h2 className="sec-title">Como funciona</h2>
+      </div>
+      <div className="wrap">
+        <div className="steps">
+          {steps.map(([number, title, text]) => (
+            <div className="step" key={number}>
+              <div className="n">{number}</div>
+              <h3>{title}</h3>
+              <p>{text}</p>
             </div>
           ))}
         </div>
@@ -304,99 +657,68 @@ function HowItWorks() {
 
 function Plans() {
   return (
-    <section id="planos" className="bg-[#fbfaf6] px-5 py-20">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Planos</p>
-            <h2 className="mt-3 text-3xl font-bold text-[#183523] sm:text-4xl">
-              Escolha o plano antes do pagamento
-            </h2>
+    <section id="planos" className="section-beige">
+      <div className="wrap center">
+        <span className="eyebrow">Planos</span>
+        <h2 className="sec-title">Escolha o plano ideal para sua fazenda</h2>
+        <p className="sec-sub">Do básico ao completo, você escolhe até onde quer chegar.</p>
+      </div>
+      <div className="wrap">
+        <div className="plans-wrap">
+          {plans.map((plan) => (
+            <PlanCard key={plan.code} plan={plan} />
+          ))}
+          <div className="quote">
+            <div className="mark">“</div>
+            <p>Hoje eu sei o que tenho que pagar, quanto vou receber e quanto sobra no final da safra. O Rédeas me deu tranquilidade pra crescer.</p>
+            <div className="who">
+              <span>JP</span>
+              <div>
+                <b>João P.</b>
+                <small>Produtor rural — Mato Grosso</small>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
-          {plans.map((plan, index) => (
-            <div
-              key={plan.code}
-              className={`rounded-lg border p-7 ${
-                index === 0
-                  ? "border-[#d8b24b] bg-[#fffdf4] shadow-sm"
-                  : "border-[#d8ddcf] bg-white"
-              }`}
-            >
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-                <div>
-                  <p className="text-sm font-semibold text-[#7b6b2d]">{plan.code}</p>
-                  <h3 className="mt-2 text-2xl font-bold text-[#183523]">{plan.name}</h3>
-                  <p className="mt-3 text-[#5d6b57]">{plan.description}</p>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-3xl font-bold text-[#21442e]">{plan.price}</p>
-                </div>
-              </div>
-              <ul className="mt-7 space-y-3">
-                {plan.includes.map((item) => (
-                  <li key={item} className="flex gap-3 text-[#30442c]">
-                    <Check className="mt-0.5 shrink-0 text-[#427a4c]" size={18} />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-              {plan.excludes && (
-                <p className="mt-5 rounded-lg bg-[#f3efe1] px-4 py-3 text-sm font-medium text-[#655a36]">
-                  {plan.excludes}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => scrollToCheckout(plan.code)}
-                className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#21442e] px-5 py-3.5 font-bold text-white transition hover:bg-[#183523]"
-              >
-                Assinar este plano
-                <ArrowRight size={18} />
-              </button>
-            </div>
-          ))}
+        <div className="guarantee">
+          <span>
+            <ShieldCheck size={20} /> 7 dias de garantia
+          </span>
+          <span>
+            <CreditCard size={20} /> Compra segura
+          </span>
+          <span>
+            <MessageCircle size={20} /> Suporte humano
+          </span>
         </div>
       </div>
     </section>
   );
 }
 
-function Benefits() {
-  const items = [
-    { icon: WalletCards, title: "Controle financeiro", text: "Organize despesas e receitas da fazenda pelo WhatsApp." },
-    { icon: CalendarClock, title: "Agenda agro", text: "Registre compromissos e atividades do dia a dia rural." },
-    { icon: Tractor, title: "Rotina de campo", text: "Feito para produtor, consultor agro e pequenas fazendas." },
-    { icon: MapPin, title: "Fazenda vinculada", text: "A fazenda fica vinculada ao número usado no cadastro após o pagamento aprovado." },
-  ];
-
+function PlanCard({ plan }: { plan: Plan }) {
   return (
-    <section className="bg-[#21442e] px-5 py-20 text-white">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-[#d8b24b]">Para o agro real</p>
-            <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
-              Menos sistema, mais conversa no canal que o produtor já usa.
-            </h2>
-            <p className="mt-5 leading-7 text-[#dce8d8]">
-              O Redeas não substitui o pagamento nem libera acesso antes da aprovação. Depois disso, o atendimento começa no WhatsApp certo.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {items.map((item) => (
-              <div key={item.title} className="rounded-lg border border-white/14 bg-white/8 p-5">
-                <item.icon className="text-[#d8b24b]" size={25} />
-                <h3 className="mt-4 text-lg font-bold">{item.title}</h3>
-                <p className="mt-2 leading-6 text-[#dce8d8]">{item.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className={plan.featured ? "plan feat" : "plan"}>
+      {plan.featured && <span className="badge">MAIS ESCOLHIDO</span>}
+      <h3>{plan.name}</h3>
+      <p className="pdesc">{plan.description}</p>
+      <div className="anchor">{plan.anchor}</div>
+      <div className="price">
+        {plan.price}
+        <small> /mês</small>
       </div>
-    </section>
+      <ul>
+        {plan.includes.map((item) => (
+          <li key={item}>
+            <CheckIcon gold={plan.featured} />
+            {item}
+          </li>
+        ))}
+      </ul>
+      <button type="button" className={plan.featured ? "btn btn-cta" : "btn btn-ghost"} onClick={() => scrollToCheckout(plan.code)}>
+        Quero o {plan.name}
+      </button>
+    </div>
   );
 }
 
@@ -476,87 +798,70 @@ function CheckoutForm() {
   }
 
   return (
-    <section id="checkout" className="bg-[#eef0e5] px-5 py-20">
-      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.82fr_1.18fr]">
+    <section id="checkout" className="checkout-section">
+      <div className="wrap checkout-grid">
         <div>
-          <p className="text-sm font-bold uppercase tracking-wide text-[#8b7330]">Assinatura</p>
-          <h2 className="mt-3 text-3xl font-bold text-[#183523] sm:text-4xl">
-            Preencha os dados antes de ir para o pagamento
-          </h2>
-          <p className="mt-5 leading-7 text-[#5d6b57]">
+          <p className="eyebrow">Assinatura</p>
+          <h2 className="sec-title">Preencha os dados antes de ir para o pagamento</h2>
+          <p className="sec-sub">
             Use o mesmo número de WhatsApp que vai conversar com o agente. Depois do pagamento aprovado, sua assinatura é ativada e o contato é liberado.
           </p>
 
-          <div className="mt-8 rounded-lg border border-[#d8ddcf] bg-white p-5">
-            <p className="text-sm font-semibold text-[#6c5d27]">Plano escolhido</p>
-            <h3 className="mt-2 text-2xl font-bold text-[#21442e]">{selectedPlan.name}</h3>
-            <p className="mt-1 text-xl font-bold text-[#183523]">{selectedPlan.price}</p>
-            <p className="mt-3 leading-6 text-[#5d6b57]">{selectedPlan.description}</p>
+          <div className="selected-plan">
+            <p>Plano escolhido</p>
+            <h3>{selectedPlan.name}</h3>
+            <strong>
+              {selectedPlan.price}
+              <small> /mês</small>
+            </strong>
+            <span>{selectedPlan.description}</span>
           </div>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="rounded-lg border border-[#d8ddcf] bg-white p-5 shadow-sm sm:p-7">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="sm:col-span-2">
-              <span className="text-sm font-semibold text-[#30442c]">Plano escolhido</span>
-              <select
-                value={form.planCode}
-                onChange={(event) => updateField("planCode", event.target.value as PlanCode)}
-                className="mt-2 h-12 w-full rounded-lg border border-[#cbd3c2] bg-white px-3 text-[#1d261b] outline-none focus:border-[#21442e] focus:ring-2 focus:ring-[#21442e]/15"
-              >
-                {plans.map((plan) => (
-                  <option key={plan.code} value={plan.code}>
-                    {plan.name} - {plan.price}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <form ref={formRef} onSubmit={handleSubmit} className="checkout-form">
+          <label className="field field-full">
+            <span>Plano escolhido</span>
+            <select value={form.planCode} onChange={(event) => updateField("planCode", event.target.value as PlanCode)}>
+              {plans.map((plan) => (
+                <option key={plan.code} value={plan.code}>
+                  {plan.name} - {plan.price}/mês
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <Input label="Nome completo" id="name" value={form.name} onChange={(value) => updateField("name", value)} autoComplete="name" />
-            <Input label="Telefone WhatsApp" value={form.phone} onChange={(value) => updateField("phone", value)} placeholder="(44) 99999-9999" autoComplete="tel" />
-            <Input label="Email" value={form.email} onChange={(value) => updateField("email", value)} type="email" autoComplete="email" />
-            <Input label="Nome da fazenda" value={form.farmName} onChange={(value) => updateField("farmName", value)} />
-            <Input label="Cidade" value={form.city} onChange={(value) => updateField("city", value)} />
+          <Input label="Nome completo" id="name" value={form.name} onChange={(value) => updateField("name", value)} autoComplete="name" />
+          <Input label="Telefone WhatsApp" value={form.phone} onChange={(value) => updateField("phone", value)} placeholder="(44) 99999-9999" autoComplete="tel" />
+          <Input label="Email" value={form.email} onChange={(value) => updateField("email", value)} type="email" autoComplete="email" />
+          <Input label="Nome da fazenda" value={form.farmName} onChange={(value) => updateField("farmName", value)} />
+          <Input label="Cidade" value={form.city} onChange={(value) => updateField("city", value)} />
 
-            <label>
-              <span className="text-sm font-semibold text-[#30442c]">UF</span>
-              <select
-                value={form.state}
-                onChange={(event) => updateField("state", event.target.value)}
-                className="mt-2 h-12 w-full rounded-lg border border-[#cbd3c2] bg-white px-3 text-[#1d261b] outline-none focus:border-[#21442e] focus:ring-2 focus:ring-[#21442e]/15"
-              >
-                <option value="">Selecione</option>
-                {stateOptions.map((state) => (
-                  <option key={state} value={state}>
-                    {state}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <label className="field">
+            <span>UF</span>
+            <select value={form.state} onChange={(event) => updateField("state", event.target.value)}>
+              <option value="">Selecione</option>
+              {stateOptions.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <Input
-              label="Atividade principal/cultura principal"
-              value={form.mainActivity}
-              onChange={(value) => updateField("mainActivity", value)}
-              placeholder="soja, leite, café..."
-              className="sm:col-span-2"
-            />
-          </div>
+          <Input
+            label="Atividade principal/cultura principal"
+            value={form.mainActivity}
+            onChange={(value) => updateField("mainActivity", value)}
+            placeholder="soja, leite, café..."
+            className="field-full"
+          />
 
-          {error && (
-            <div className="mt-5 rounded-lg border border-[#e0a7a7] bg-[#fff4f4] px-4 py-3 text-sm font-medium text-[#8d2727]">
-              {error}
-            </div>
-          )}
+          {error && <div className="form-error">{error}</div>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-6 inline-flex h-13 w-full items-center justify-center gap-2 rounded-lg bg-[#21442e] px-5 py-4 font-bold text-white transition hover:bg-[#183523] disabled:cursor-not-allowed disabled:opacity-70"
-          >
+          <button type="submit" disabled={loading} className="btn checkout-button">
             {loading ? (
               <>
-                <Loader2 className="animate-spin" size={19} />
+                <Loader2 className="spin" size={19} />
                 Criando checkout...
               </>
             ) : (
@@ -567,9 +872,7 @@ function CheckoutForm() {
             )}
           </button>
 
-          <p className="mt-4 text-sm leading-6 text-[#5d6b57]">
-            O acesso ao WhatsApp só é liberado após a confirmação do pagamento.
-          </p>
+          <p className="checkout-note">O acesso ao WhatsApp só é liberado após a confirmação do pagamento.</p>
         </form>
       </div>
     </section>
@@ -596,18 +899,67 @@ function Input({
   className?: string;
 }) {
   return (
-    <label className={className}>
-      <span className="text-sm font-semibold text-[#30442c]">{label}</span>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        autoComplete={autoComplete}
-        className="mt-2 h-12 w-full rounded-lg border border-[#cbd3c2] bg-white px-3 text-[#1d261b] outline-none focus:border-[#21442e] focus:ring-2 focus:ring-[#21442e]/15"
-      />
+    <label className={`field ${className}`}>
+      <span>{label}</span>
+      <input id={id} type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} autoComplete={autoComplete} />
     </label>
+  );
+}
+
+function Faq() {
+  const questions = [
+    ["Preciso instalar algum aplicativo?", "Não. O Rédeas funciona inteiramente pelo WhatsApp, que você já usa todo dia. É só mandar mensagem ou áudio."],
+    ["Não entendo de tecnologia. Vou conseguir usar?", "Se você usa WhatsApp, você usa o Rédeas. É só conversar, do jeito que você fala. Sem planilha, sem painel complicado."],
+    ["Funciona pra qualquer tipo de produção?", "Sim. Lavoura, pecuária, pequena ou média propriedade, o Rédeas se adapta ao seu jeito de tocar a fazenda."],
+    ["Meus dados estão seguros?", "Sim. Seus dados são protegidos e não são compartilhados com terceiros, seguindo a LGPD."],
+    ["E se eu não gostar?", "Você tem 7 dias de garantia. Se sentir que não é pra você, devolvemos 100% do valor, sem burocracia."],
+  ];
+
+  return (
+    <section className="faq" id="duvidas">
+      <div className="wrap center">
+        <span className="eyebrow">Tire suas dúvidas</span>
+        <h2 className="sec-title">Perguntas frequentes</h2>
+      </div>
+      <div className="wrap">
+        <div className="faq-list">
+          {questions.map(([question, answer], index) => (
+            <details key={question} open={index === 0}>
+              <summary>{question}</summary>
+              <p>{answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CtaBand() {
+  return (
+    <section className="cta-band">
+      <div className="wrap">
+        <h2>Pronto pra assumir as rédeas da sua fazenda?</h2>
+        <p>Comece hoje a organizar o caixa e a agenda da sua propriedade direto no WhatsApp.</p>
+        <a href="#planos" className="btn btn-cta">
+          Quero começar agora
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer>
+      <div className="wrap">
+        <div className="footer-brand">
+          <Brand />
+        </div>
+        <div className="tag">Assuma o controle do seu agronegócio</div>
+        <small>© 2026 Rédeas. Todos os direitos reservados.</small>
+      </div>
+    </footer>
   );
 }
 
@@ -615,25 +967,18 @@ function PaymentStatus({ type }: { type: "approved" | "cancelled" }) {
   const approved = type === "approved";
 
   return (
-    <main className="min-h-screen bg-[#fbfaf6]">
+    <main className="payment-page">
       <Header />
-      <section className="mx-auto flex max-w-3xl flex-col items-start px-5 py-20">
-        <div className="rounded-lg border border-[#d8ddcf] bg-white p-8 shadow-sm">
-          <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-lg ${approved ? "bg-[#e5f1df] text-[#21442e]" : "bg-[#fff2d2] text-[#755e1d]"}`}>
-            {approved ? <Check size={25} /> : <CreditCard size={25} />}
-          </div>
-          <h1 className="text-3xl font-bold text-[#183523]">
-            {approved ? "Pagamento recebido" : "Pagamento cancelado"}
-          </h1>
-          <p className="mt-4 leading-7 text-[#5d6b57]">
+      <section className="wrap payment-status">
+        <div className="payment-card">
+          <div className={approved ? "payment-icon ok" : "payment-icon warn"}>{approved ? <Check size={25} /> : <CreditCard size={25} />}</div>
+          <h1>{approved ? "Pagamento recebido" : "Pagamento cancelado"}</h1>
+          <p>
             {approved
               ? "Recebemos o retorno do pagamento. O WhatsApp será liberado após a confirmação da aprovação pela operadora."
               : "O checkout não foi concluído. Você pode voltar para a landing, conferir os dados e tentar novamente."}
           </p>
-          <a
-            href="/"
-            className="mt-7 inline-flex items-center gap-2 rounded-lg bg-[#21442e] px-5 py-3 font-bold text-white transition hover:bg-[#183523]"
-          >
+          <a href="/" className="btn">
             Voltar para a landing
             <ArrowRight size={18} />
           </a>
@@ -643,26 +988,20 @@ function PaymentStatus({ type }: { type: "approved" | "cancelled" }) {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="border-t border-[#d8ddcf] bg-[#fbfaf6] px-5 py-10">
-      <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 text-sm text-[#5d6b57] md:flex-row md:items-center">
-        <Brand />
-        <p>Cadastro pela landing. Liberação no WhatsApp somente após pagamento aprovado.</p>
-      </div>
-    </footer>
-  );
-}
-
 function LandingPage() {
   return (
     <main>
       <Header />
       <Hero />
+      <Ticker />
+      <FeatureSections />
+      <UseYourWay />
+      <Benefits />
       <HowItWorks />
       <Plans />
-      <Benefits />
       <CheckoutForm />
+      <Faq />
+      <CtaBand />
       <Footer />
     </main>
   );
