@@ -1449,6 +1449,10 @@ footer small {
     grid-template-columns: 1fr;
   }
 
+  .hero-grid {
+    gap: 46px;
+  }
+
   .hero h1 {
     font-size: 37px;
   }
@@ -1480,7 +1484,6 @@ footer small {
   }
 
   .phone-col {
-    order: -1;
     width: min(100%, 500px);
   }
 
@@ -1506,8 +1509,56 @@ footer small {
     padding: 0 20px;
   }
 
+  .hero {
+    padding: 108px 0 58px;
+  }
+
+  .hero-grid {
+    gap: 38px;
+  }
+
+  .hero .sub {
+    font-size: 16px;
+  }
+
+  .hero-cta {
+    align-items: stretch;
+  }
+
+  .hero-cta .btn {
+    width: 100%;
+  }
+
+  .proof {
+    align-items: flex-start;
+  }
+
   .site-header .btn {
     display: none;
+  }
+
+  .mock,
+  .plan,
+  .quote,
+  .selected-plan,
+  .checkout-form {
+    border-radius: 16px;
+  }
+
+  .chips-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .chip-b {
+    border-radius: 14px;
+    justify-content: flex-start;
+  }
+
+  .kv {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .checkout-form {
@@ -1539,5 +1590,72 @@ footer small {
 
   .phone-col {
     min-height: auto;
+  }
+
+  .phone {
+    width: min(100%, 292px);
+    min-height: 490px;
+    padding: 10px;
+  }
+
+  .screen {
+    min-height: 470px;
+  }
+
+  .scr-body {
+    min-height: 406px;
+    padding: 14px 11px;
+  }
+
+  .bub {
+    max-width: 86%;
+    font-size: 11px;
+  }
+
+  .balance-answer b {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 380px) {
+  .wrap {
+    padding: 0 16px;
+  }
+
+  .hero h1 {
+    font-size: 28px;
+  }
+
+  .btn {
+    width: 100%;
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .phone {
+    width: min(100%, 276px);
+    min-height: 470px;
+  }
+
+  .screen {
+    min-height: 450px;
+  }
+
+  .scr-body {
+    min-height: 386px;
+    gap: 6px;
+    padding: 13px 10px;
+  }
+
+  .bub {
+    font-size: 10.5px;
+  }
+
+  .price {
+    font-size: 34px;
+  }
+
+  .checkout-form {
+    padding: 18px;
   }
 }
