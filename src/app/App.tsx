@@ -5,19 +5,35 @@ import {
   Bell,
   CalendarDays,
   Check,
+  ClipboardList,
   CreditCard,
+  DollarSign,
+  Home,
+  LayoutDashboard,
   Leaf,
+  ListChecks,
   Loader2,
+  LogOut,
   MessageCircle,
   PiggyBank,
+  Plus,
+  QrCode,
+  Save,
   ShieldCheck,
   Sprout,
+  Trash2,
+  UserCircle,
   WalletCards,
+  X,
 } from "lucide-react";
+import { LoginModal } from "./components/auth/LoginModal";
 import redeasLogo from "../assets/redeas-logo-transparent.png";
 import "../styles/landing.css";
 
 type PlanCode = "finance_basic" | "finance_safra";
+type BillingCycle = "monthly" | "annual";
+type PaymentMethod = "card" | "pix";
+type PlatformTab = "dashboard" | "agenda" | "financeiro" | "planejamento";
 
 type FormState = {
   planCode: PlanCode;
@@ -30,10 +46,22 @@ type FormState = {
   mainActivity: string;
 };
 
+type PayingUserSession = FormState & {
+  userId: string;
+  payerId: string;
+  billingCycle: BillingCycle;
+  paymentMethod: PaymentMethod;
+  amountCents: number;
+  paidAt: string;
+};
+
 type Plan = {
   code: PlanCode;
   name: string;
   price: string;
+  monthlyPriceCents: number;
+  annualInstallmentCents: number;
+  annualTotalCents: number;
   anchor: string;
   description: string;
   featured?: boolean;
@@ -46,6 +74,9 @@ const plans: Plan[] = [
     name: "Essencial",
     anchor: "de R$ 39,90",
     price: "R$ 25,90",
+    monthlyPriceCents: 2590,
+    annualInstallmentCents: 2290,
+    annualTotalCents: 27480,
     description: "Controle básico do dia a dia",
     includes: [
       "Registro de entradas e saídas pelo WhatsApp",
@@ -59,6 +90,9 @@ const plans: Plan[] = [
     name: "Completo",
     anchor: "de R$ 69,90",
     price: "R$ 47,90",
+    monthlyPriceCents: 4790,
+    annualInstallmentCents: 4390,
+    annualTotalCents: 52680,
     description: "Gestão financeira com visão de decisão",
     featured: true,
     includes: [
@@ -82,6 +116,25 @@ const initialForm: FormState = {
   state: "",
   mainActivity: "",
 };
+
+const demoSession: PayingUserSession = {
+  userId: "demo-user",
+  payerId: "demo-payer",
+  planCode: "finance_safra",
+  billingCycle: "annual",
+  paymentMethod: "card",
+  amountCents: 52680,
+  paidAt: new Date().toISOString(),
+  name: "João Pereira",
+  phone: "(65) 99999-1020",
+  email: "joao@fazendasantaclara.com.br",
+  farmName: "Fazenda Santa Clara",
+  city: "Sorriso",
+  state: "MT",
+  mainActivity: "Soja e milho",
+};
+
+const sessionStorageKey = "redeas:paying-user";
 
 const stateOptions = [
   "AC",
@@ -113,6 +166,13 @@ const stateOptions = [
   "TO",
 ];
 
+function formatMoney(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
+
 function getSupabaseConfig() {
   const env = import.meta.env as Record<string, string | undefined>;
   const url = env.NEXT_PUBLIC_SUPABASE_URL || env.VITE_SUPABASE_URL;
@@ -126,10 +186,32 @@ function getSupabaseConfig() {
   };
 }
 
-async function createCheckout(payload: FormState) {
+function buildLocalSession(payload: FormState & { billingCycle: BillingCycle; paymentMethod: PaymentMethod; amountCents: number }): PayingUserSession {
+  return {
+    ...payload,
+    userId: crypto.randomUUID(),
+    payerId: crypto.randomUUID(),
+    paidAt: new Date().toISOString(),
+  };
+}
+
+function readStoredSession() {
+  try {
+    const stored = window.localStorage.getItem(sessionStorageKey);
+    return stored ? (JSON.parse(stored) as PayingUserSession) : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeSession(session: PayingUserSession) {
+  window.localStorage.setItem(sessionStorageKey, JSON.stringify(session));
+}
+
+async function confirmFakePayment(payload: FormState & { billingCycle: BillingCycle; paymentMethod: PaymentMethod; amountCents: number }) {
   const supabase = getSupabaseConfig();
   if (!supabase) {
-    throw new Error("Checkout indisponível no momento. Tente novamente em instantes.");
+    return buildLocalSession(payload);
   }
 
   const response = await fetch(`${supabase.url}/functions/v1/checkouts`, {
@@ -148,17 +230,24 @@ async function createCheckout(payload: FormState) {
       city: payload.city,
       state: payload.state,
       mainActivity: payload.mainActivity,
+      billingCycle: payload.billingCycle,
+      paymentMethod: payload.paymentMethod,
+      amountCents: payload.amountCents,
     }),
   });
 
   const result = await response.json().catch(() => null);
-  const checkoutUrl = result?.data?.checkoutUrl;
 
-  if (!response.ok || !result?.success || !checkoutUrl) {
-    throw new Error(result?.message || "Não foi possível criar o checkout. Confira os dados e tente novamente.");
+  if (!response.ok || !result?.success) {
+    throw new Error(result?.message || "Não foi possível confirmar o pagamento. Confira os dados e tente novamente.");
   }
 
-  return checkoutUrl as string;
+  return {
+    ...payload,
+    userId: result.data?.usuario?.id || crypto.randomUUID(),
+    payerId: result.data?.usuarioPagante?.id || crypto.randomUUID(),
+    paidAt: result.data?.usuarioPagante?.createdAt || new Date().toISOString(),
+  } satisfies PayingUserSession;
 }
 
 function scrollToCheckout(planCode: PlanCode) {
@@ -174,7 +263,7 @@ function Brand() {
   );
 }
 
-function Header() {
+function Header({ onLoginClick }: { onLoginClick?: () => void }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -194,9 +283,16 @@ function Header() {
           <a href="#planos">Planos</a>
           <a href="#duvidas">Dúvidas</a>
         </nav>
-        <a href="#planos" className="btn btn-cta">
-          Começar agora
-        </a>
+        <div className="nav-actions">
+          {onLoginClick && (
+            <button type="button" className="nav-login" onClick={onLoginClick}>
+              Entrar
+            </button>
+          )}
+          <a href="#planos" className="btn btn-cta">
+            Começar agora
+          </a>
+        </div>
       </div>
     </header>
   );
@@ -716,17 +812,20 @@ function PlanCard({ plan }: { plan: Plan }) {
         ))}
       </ul>
       <button type="button" className={plan.featured ? "btn btn-cta" : "btn btn-ghost"} onClick={() => scrollToCheckout(plan.code)}>
-        Quero o {plan.name}
+        Assinar plano {plan.name}
       </button>
     </div>
   );
 }
 
-function CheckoutForm() {
+function CheckoutForm({ onPaymentConfirmed }: { onPaymentConfirmed: (session: PayingUserSession) => void }) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle | "">("");
 
   useEffect(() => {
     const listener = (event: Event) => {
@@ -739,6 +838,7 @@ function CheckoutForm() {
   }, []);
 
   const selectedPlan = plans.find((plan) => plan.code === form.planCode) || plans[0];
+  const selectedAmountCents = billingCycle === "monthly" ? selectedPlan.monthlyPriceCents : selectedPlan.annualTotalCents;
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -766,7 +866,7 @@ function CheckoutForm() {
     return "";
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
@@ -776,10 +876,21 @@ function CheckoutForm() {
       return;
     }
 
+    setPaymentOpen(true);
+  }
+
+  async function handleConfirmPayment() {
+    setError("");
+    if (!billingCycle) {
+      setError("Selecione o ciclo da assinatura para efetuar o pagamento.");
+      return;
+    }
+
     setLoading(true);
     try {
-      const checkoutUrl = await createCheckout({
+      const session = await confirmFakePayment({
         planCode: form.planCode,
+        billingCycle,
         name: form.name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
@@ -787,9 +898,12 @@ function CheckoutForm() {
         city: form.city.trim(),
         state: form.state,
         mainActivity: form.mainActivity.trim(),
+        paymentMethod,
+        amountCents: selectedAmountCents,
       });
 
-      window.location.assign(checkoutUrl);
+      setPaymentOpen(false);
+      onPaymentConfirmed(session);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao criar o checkout. Tente novamente.");
     } finally {
@@ -866,7 +980,7 @@ function CheckoutForm() {
               </>
             ) : (
               <>
-                Ir para pagamento
+                Assinar plano
                 <ArrowRight size={19} />
               </>
             )}
@@ -875,7 +989,144 @@ function CheckoutForm() {
           <p className="checkout-note">O acesso ao WhatsApp só é liberado após a confirmação do pagamento.</p>
         </form>
       </div>
+      <PaymentModal
+        open={paymentOpen}
+        plan={selectedPlan}
+        form={form}
+        paymentMethod={paymentMethod}
+        billingCycle={billingCycle}
+        loading={loading}
+        onPaymentMethodChange={setPaymentMethod}
+        onBillingCycleChange={setBillingCycle}
+        onClose={() => {
+          if (!loading) setPaymentOpen(false);
+        }}
+        onConfirm={handleConfirmPayment}
+      />
     </section>
+  );
+}
+
+function PaymentModal({
+  open,
+  plan,
+  form,
+  paymentMethod,
+  billingCycle,
+  loading,
+  onPaymentMethodChange,
+  onBillingCycleChange,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  plan: Plan;
+  form: FormState;
+  paymentMethod: PaymentMethod;
+  billingCycle: BillingCycle | "";
+  loading: boolean;
+  onPaymentMethodChange: (method: PaymentMethod) => void;
+  onBillingCycleChange: (cycle: BillingCycle | "") => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  const cycleOptions =
+    paymentMethod === "pix"
+      ? [
+          { value: "monthly" as const, label: `Mensal - ${formatMoney(plan.monthlyPriceCents)}` },
+          { value: "annual" as const, label: `Anual - ${formatMoney(plan.annualTotalCents)}` },
+        ]
+      : [
+          { value: "monthly" as const, label: `Mensal - ${formatMoney(plan.monthlyPriceCents)}` },
+          { value: "annual" as const, label: `Anual - 12x ${formatMoney(plan.annualInstallmentCents)} (${formatMoney(plan.annualTotalCents)})` },
+        ];
+
+  return (
+    <div className="pay-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <div className="pay-modal" role="dialog" aria-modal="true" aria-labelledby="payment-title" onMouseDown={(event) => event.stopPropagation()}>
+        <button type="button" className="pay-modal-close" aria-label="Fechar pagamento" onClick={onClose} disabled={loading}>
+          <X size={20} />
+        </button>
+
+        <div className="pay-modal-head">
+          <p className="eyebrow">Pagamento</p>
+          <h2 id="payment-title">Efetuar pagamento</h2>
+        </div>
+
+        <div className="pay-summary">
+          <div>
+            <small>Nome completo</small>
+            <strong>{form.name}</strong>
+          </div>
+          <div>
+            <small>Email</small>
+            <strong>{form.email}</strong>
+          </div>
+          <div>
+            <small>Telefone WhatsApp</small>
+            <strong>{form.phone}</strong>
+          </div>
+        </div>
+
+        <div className="pay-section">
+          <h3>Forma de pagamento</h3>
+          <div className="payment-options two">
+            <button
+              type="button"
+              className={paymentMethod === "card" ? "payment-option active" : "payment-option"}
+              onClick={() => {
+                onPaymentMethodChange("card");
+                onBillingCycleChange("");
+              }}
+            >
+              <CreditCard size={21} />
+              <span>Cartão de crédito</span>
+              <small>Validação fake aprovada na hora</small>
+            </button>
+            <button
+              type="button"
+              className={paymentMethod === "pix" ? "payment-option active" : "payment-option"}
+              onClick={() => {
+                onPaymentMethodChange("pix");
+                onBillingCycleChange("");
+              }}
+            >
+              <QrCode size={21} />
+              <span>Pix</span>
+              <small>Validação fake aprovada na hora</small>
+            </button>
+          </div>
+        </div>
+
+        <label className="payment-cycle-field">
+          <span>{paymentMethod === "pix" ? "Escolha a cobrança Pix" : "Escolha a cobrança no cartão"}</span>
+          <select value={billingCycle} onChange={(event) => onBillingCycleChange(event.target.value as BillingCycle | "")}>
+            <option value="">Selecione uma opção</option>
+            {cycleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button type="button" className="btn checkout-button pay-confirm" onClick={onConfirm} disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="spin" size={19} />
+              Criando checkout...
+            </>
+          ) : (
+            <>
+              Efetuar pagamento
+              <ArrowRight size={19} />
+            </>
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -963,6 +1214,191 @@ function Footer() {
   );
 }
 
+function PlatformPage({ session, onLogout }: { session: PayingUserSession; onLogout: () => void }) {
+  const [activeTab, setActiveTab] = useState<PlatformTab>("dashboard");
+  const [agenda, setAgenda] = useState([
+    { id: "a1", date: "2026-07-02", title: "Pagamento do arrendamento", details: "R$ 8.400 - confirmar no banco" },
+    { id: "a2", date: "2026-07-05", title: "Compra de insumos", details: "Cotar defensivos da safra de milho" },
+    { id: "a3", date: "2026-07-10", title: "Revisão do trator", details: "Oficina agendada para o período da manhã" },
+  ]);
+  const [financeiro, setFinanceiro] = useState([
+    { id: "f1", type: "receita", description: "Venda de soja", amount: "26000", category: "Receita" },
+    { id: "f2", type: "despesa", description: "Diesel", amount: "1250", category: "Combustível" },
+    { id: "f3", type: "despesa", description: "Fertilizante", amount: "7100", category: "Insumos" },
+  ]);
+  const [planejamento, setPlanejamento] = useState([
+    { id: "p1", goal: "Meta de faturamento da safra", value: "273750" },
+    { id: "p2", goal: "Limite mensal de gastos", value: "18000" },
+    { id: "p3", goal: "Reserva para manutenção", value: "9500" },
+  ]);
+
+  const plan = plans.find((item) => item.code === session.planCode) || plans[0];
+  const canPlan = session.planCode === "finance_safra";
+  const receita = financeiro.filter((item) => item.type === "receita").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const despesa = financeiro.filter((item) => item.type === "despesa").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const saldo = receita - despesa;
+  const tabs: Array<{ id: PlatformTab; label: string; icon: ReactNode; disabled?: boolean }> = [
+    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+    { id: "agenda", label: "Agenda", icon: <CalendarDays size={18} /> },
+    { id: "financeiro", label: "Financeiro", icon: <DollarSign size={18} /> },
+    { id: "planejamento", label: "Planejamento", icon: <ListChecks size={18} />, disabled: !canPlan },
+  ];
+
+  function addAgendaItem() {
+    setAgenda((current) => [...current, { id: crypto.randomUUID(), date: "2026-07-15", title: "Novo compromisso", details: "Detalhes do compromisso" }]);
+  }
+
+  function addFinanceItem() {
+    setFinanceiro((current) => [...current, { id: crypto.randomUUID(), type: "despesa", description: "Novo lançamento", amount: "0", category: "Geral" }]);
+  }
+
+  function addPlanningItem() {
+    setPlanejamento((current) => [...current, { id: crypto.randomUUID(), goal: "Nova meta", value: "0" }]);
+  }
+
+  return (
+    <main className="platform-shell">
+      <aside className="platform-sidebar">
+        <Brand />
+        <div className="platform-user">
+          <UserCircle size={36} />
+          <div>
+            <strong>{session.name}</strong>
+            <span>{plan.name}</span>
+          </div>
+        </div>
+        <nav className="platform-nav">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={activeTab === tab.id ? "active" : ""}
+              disabled={tab.disabled}
+              onClick={() => setActiveTab(tab.id)}
+              title={tab.disabled ? "Disponível no plano Completo" : tab.label}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+        <button type="button" className="platform-logout" onClick={onLogout}>
+          <LogOut size={18} />
+          Sair
+        </button>
+      </aside>
+
+      <section className="platform-main">
+        <header className="platform-topbar">
+          <div>
+            <span>{session.farmName}</span>
+            <h1>{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+          </div>
+          <a href="/" className="platform-home">
+            <Home size={18} />
+            Landing
+          </a>
+        </header>
+
+        {activeTab === "dashboard" && (
+          <div className="platform-grid">
+            <MetricCard icon={<WalletCards size={20} />} label="Saldo atual" value={formatMoney(saldo * 100)} tone={saldo >= 0 ? "positive" : "negative"} />
+            <MetricCard icon={<PiggyBank size={20} />} label="Receitas" value={formatMoney(receita * 100)} tone="positive" />
+            <MetricCard icon={<CreditCard size={20} />} label="Despesas" value={formatMoney(despesa * 100)} tone="negative" />
+            <MetricCard icon={<ClipboardList size={20} />} label="Agenda" value={`${agenda.length} itens`} />
+            <div className="platform-panel platform-wide">
+              <h2>Resumo do agente</h2>
+              <p>
+                O agente registrou {financeiro.length} lançamentos e encontrou maior concentração de despesas em insumos e combustível. A próxima
+                ação recomendada é revisar o limite mensal antes da nova compra de defensivos.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "agenda" && (
+          <EditableSection title="Agenda da fazenda" onAdd={addAgendaItem}>
+            {agenda.map((item) => (
+              <div className="edit-row agenda-edit-row" key={item.id}>
+                <input value={item.date} type="date" onChange={(event) => setAgenda((current) => current.map((row) => (row.id === item.id ? { ...row, date: event.target.value } : row)))} />
+                <input value={item.title} onChange={(event) => setAgenda((current) => current.map((row) => (row.id === item.id ? { ...row, title: event.target.value } : row)))} />
+                <input value={item.details} onChange={(event) => setAgenda((current) => current.map((row) => (row.id === item.id ? { ...row, details: event.target.value } : row)))} />
+                <button type="button" onClick={() => setAgenda((current) => current.filter((row) => row.id !== item.id))} aria-label="Remover compromisso">
+                  <Trash2 size={17} />
+                </button>
+              </div>
+            ))}
+          </EditableSection>
+        )}
+
+        {activeTab === "financeiro" && (
+          <EditableSection title="Lançamentos financeiros" onAdd={addFinanceItem}>
+            {financeiro.map((item) => (
+              <div className="edit-row finance-edit-row" key={item.id}>
+                <select value={item.type} onChange={(event) => setFinanceiro((current) => current.map((row) => (row.id === item.id ? { ...row, type: event.target.value } : row)))}>
+                  <option value="receita">Receita</option>
+                  <option value="despesa">Despesa</option>
+                </select>
+                <input value={item.description} onChange={(event) => setFinanceiro((current) => current.map((row) => (row.id === item.id ? { ...row, description: event.target.value } : row)))} />
+                <input value={item.category} onChange={(event) => setFinanceiro((current) => current.map((row) => (row.id === item.id ? { ...row, category: event.target.value } : row)))} />
+                <input value={item.amount} type="number" min="0" onChange={(event) => setFinanceiro((current) => current.map((row) => (row.id === item.id ? { ...row, amount: event.target.value } : row)))} />
+                <button type="button" onClick={() => setFinanceiro((current) => current.filter((row) => row.id !== item.id))} aria-label="Remover lançamento">
+                  <Trash2 size={17} />
+                </button>
+              </div>
+            ))}
+          </EditableSection>
+        )}
+
+        {activeTab === "planejamento" && canPlan && (
+          <EditableSection title="Planejamento da safra" onAdd={addPlanningItem}>
+            {planejamento.map((item) => (
+              <div className="edit-row planning-edit-row" key={item.id}>
+                <input value={item.goal} onChange={(event) => setPlanejamento((current) => current.map((row) => (row.id === item.id ? { ...row, goal: event.target.value } : row)))} />
+                <input value={item.value} type="number" min="0" onChange={(event) => setPlanejamento((current) => current.map((row) => (row.id === item.id ? { ...row, value: event.target.value } : row)))} />
+                <button type="button" onClick={() => setPlanejamento((current) => current.filter((row) => row.id !== item.id))} aria-label="Remover meta">
+                  <Trash2 size={17} />
+                </button>
+              </div>
+            ))}
+          </EditableSection>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function MetricCard({ icon, label, value, tone = "" }: { icon: ReactNode; label: string; value: string; tone?: string }) {
+  return (
+    <div className={`metric-card ${tone}`}>
+      <span>{icon}</span>
+      <small>{label}</small>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function EditableSection({ title, onAdd, children }: { title: string; onAdd: () => void; children: ReactNode }) {
+  return (
+    <div className="platform-panel">
+      <div className="edit-head">
+        <h2>{title}</h2>
+        <div>
+          <button type="button" className="platform-action secondary">
+            <Save size={17} />
+            Salvar
+          </button>
+          <button type="button" className="platform-action" onClick={onAdd}>
+            <Plus size={17} />
+            Adicionar
+          </button>
+        </div>
+      </div>
+      <div className="edit-list">{children}</div>
+    </div>
+  );
+}
+
 function PaymentStatus({ type }: { type: "approved" | "cancelled" }) {
   const approved = type === "approved";
 
@@ -988,10 +1424,12 @@ function PaymentStatus({ type }: { type: "approved" | "cancelled" }) {
   );
 }
 
-function LandingPage() {
+function LandingPage({ onPaymentConfirmed, onDemoLogin }: { onPaymentConfirmed: (session: PayingUserSession) => void; onDemoLogin: () => void }) {
+  const [loginOpen, setLoginOpen] = useState(false);
+
   return (
     <main>
-      <Header />
+      <Header onLoginClick={() => setLoginOpen(true)} />
       <Hero />
       <Ticker />
       <FeatureSections />
@@ -999,16 +1437,63 @@ function LandingPage() {
       <Benefits />
       <HowItWorks />
       <Plans />
-      <CheckoutForm />
+      <CheckoutForm onPaymentConfirmed={onPaymentConfirmed} />
       <Faq />
       <CtaBand />
       <Footer />
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onLogin={() => {
+          setLoginOpen(false);
+          onDemoLogin();
+        }}
+      />
     </main>
   );
 }
 
 export default function App() {
-  const path = window.location.pathname.replace(/\/$/, "");
+  const [path, setPath] = useState(() => window.location.pathname.replace(/\/$/, "") || "/");
+  const [toast, setToast] = useState("");
+  const [session, setSession] = useState<PayingUserSession | null>(() => readStoredSession());
+
+  useEffect(() => {
+    const onPopState = () => setPath(window.location.pathname.replace(/\/$/, "") || "/");
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  function navigate(to: string) {
+    window.history.pushState({}, "", to);
+    setPath(to.replace(/\/$/, "") || "/");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 4200);
+  }
+
+  function handlePaymentConfirmed(nextSession: PayingUserSession) {
+    storeSession(nextSession);
+    setSession(nextSession);
+    showToast("Pagamento confirmado! Nosso agente entrará em contato com você em instantes");
+    window.setTimeout(() => navigate("/plataforma"), 1100);
+  }
+
+  function handleDemoLogin() {
+    const nextSession = readStoredSession() || demoSession;
+    storeSession(nextSession);
+    setSession(nextSession);
+    navigate("/plataforma");
+  }
+
+  function handleLogout() {
+    window.localStorage.removeItem(sessionStorageKey);
+    setSession(null);
+    navigate("/");
+  }
 
   if (path === "/pagamento/aprovado") {
     return <PaymentStatus type="approved" />;
@@ -1018,5 +1503,28 @@ export default function App() {
     return <PaymentStatus type="cancelled" />;
   }
 
-  return <LandingPage />;
+  if (path === "/plataforma") {
+    return (
+      <>
+        <PlatformPage session={session || demoSession} onLogout={handleLogout} />
+        {toast && <Toast message={toast} />}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <LandingPage onPaymentConfirmed={handlePaymentConfirmed} onDemoLogin={handleDemoLogin} />
+      {toast && <Toast message={toast} />}
+    </>
+  );
+}
+
+function Toast({ message }: { message: string }) {
+  return (
+    <div className="app-toast" role="status">
+      <Check size={19} />
+      {message}
+    </div>
+  );
 }
